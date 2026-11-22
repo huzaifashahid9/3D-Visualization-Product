@@ -40,8 +40,33 @@ A QR code appears in the terminal.
 Your phone and computer must be on the same Wi-Fi. If the network blocks that (common on office and
 venue Wi-Fi), run `npx expo start --tunnel` instead.
 
+**If it won't open on your phone:**
+
+- Update **Expo Go** from the App Store or Play Store. This project uses Expo SDK 58, and an older Expo Go
+  shows a "project is incompatible" message.
+- If the phone can't reach your computer (it spins, or shows "Could not connect to the server"), stop the
+  server and run `npx expo start --tunnel`. Say yes if it offers to install `@expo/ngrok`.
+- After pulling new changes, run `npm install` again before `npx expo start`.
+
 The first load takes a little longer because the 3D model is bundled into the app. After that the 3D
 viewer works without internet, which is safer for a live pitch.
+
+## Run it in a simulator or a browser
+
+Start the server with `npx expo start`, then press a key in the terminal:
+
+| Key | Opens | What you need |
+| --- | --- | --- |
+| `i` | iOS Simulator | A Mac with [Xcode](https://apps.apple.com/app/xcode/id497799835) installed (open Xcode once to finish setup). |
+| `a` | Android emulator | [Android Studio](https://developer.android.com/studio) with a virtual device created in **Device Manager**. Start the emulator first, then press `a`. |
+| `w` | Web browser | Nothing extra. The quickest way to click through the app on any computer. |
+
+Expo installs Expo Go in the simulator or emulator for you the first time. In the simulator, drag with the
+mouse to rotate the 3D model; to pinch-zoom, hold Option (iOS) or Ctrl (Android) while dragging, or use
+the + and − buttons.
+
+On web, the 3D viewer runs in an `<iframe>` instead of a WebView (see `src/viewer/ModelViewer.web.tsx`),
+so everything works the same in the browser.
 
 ## Add the intro film
 
