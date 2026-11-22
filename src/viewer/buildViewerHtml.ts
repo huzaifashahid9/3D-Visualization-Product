@@ -83,7 +83,10 @@ export function buildViewerHtml({ modelUri, modelViewerScript, parts }: Options)
   var selected = 0;
 
   function post(msg) {
-    if (window.ReactNativeWebView) window.ReactNativeWebView.postMessage(JSON.stringify(msg));
+    var data = JSON.stringify(msg);
+    if (window.ReactNativeWebView) window.ReactNativeWebView.postMessage(data);
+    // On web the page runs in an <iframe>; tell the app through the parent window.
+    else if (window.parent && window.parent !== window) window.parent.postMessage({ halo: data }, '*');
   }
   function hotspotPosition(i) {
     var p = CONFIG.parts[i].position, o = CONFIG.parts[i].offset, k = exploded ? 1 : 0;
