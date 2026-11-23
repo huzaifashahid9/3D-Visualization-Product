@@ -51,23 +51,23 @@ export const ModelViewer = forwardRef<ModelViewerHandle, Props>(function ModelVi
     [],
   );
 
-  const run = (js: string) => webview.current?.injectJavaScript(`window.halo && (${js}); true;`);
+  const run = (js: string) => webview.current?.injectJavaScript(`window.irada && (${js}); true;`);
 
   useImperativeHandle(ref, () => ({
-    zoomIn: () => run('window.halo.zoom(0.8)'),
-    zoomOut: () => run('window.halo.zoom(1.25)'),
-    reset: () => run('window.halo.reset()'),
+    zoomIn: () => run('window.irada.zoom(0.8)'),
+    zoomOut: () => run('window.irada.zoom(1.25)'),
+    reset: () => run('window.irada.reset()'),
   }));
 
   // Keep the page in sync with the app's state once the model is ready.
   useEffect(() => {
-    if (loaded) run(`window.halo.select(${selected})`);
+    if (loaded) run(`window.irada.select(${selected})`);
   }, [loaded, selected]);
   useEffect(() => {
-    if (loaded) run(`window.halo.setExploded(${exploded})`);
+    if (loaded) run(`window.irada.setExploded(${exploded})`);
   }, [loaded, exploded]);
   useEffect(() => {
-    if (loaded) run(`window.halo.setAutoRotate(${autoRotate})`);
+    if (loaded) run(`window.irada.setAutoRotate(${autoRotate})`);
   }, [loaded, autoRotate]);
 
   useEffect(() => {

@@ -22,7 +22,7 @@ interface Props {
   style?: StyleProp<ViewStyle>;
 }
 
-interface HaloApi {
+interface ViewerApi {
   select(i: number): void;
   setExploded(on: boolean): void;
   setAutoRotate(on: boolean): void;
@@ -49,19 +49,19 @@ export const ModelViewer = forwardRef<ModelViewerHandle, Props>(function ModelVi
     [],
   );
 
-  // The iframe uses srcdoc, so it shares this page's origin and its window.halo can be called directly.
-  const halo = () => (frame.current?.contentWindow as (Window & { halo?: HaloApi }) | null)?.halo;
+  // The iframe uses srcdoc, so it shares this page's origin and its window.irada can be called directly.
+  const api = () => (frame.current?.contentWindow as (Window & { irada?: ViewerApi }) | null)?.irada;
 
   useImperativeHandle(ref, () => ({
-    zoomIn: () => halo()?.zoom(0.8),
-    zoomOut: () => halo()?.zoom(1.25),
-    reset: () => halo()?.reset(),
+    zoomIn: () => api()?.zoom(0.8),
+    zoomOut: () => api()?.zoom(1.25),
+    reset: () => api()?.reset(),
   }));
 
   useEffect(() => {
     const onMessage = (event: MessageEvent) => {
-      if (event.source !== frame.current?.contentWindow || typeof event.data?.halo !== 'string') return;
-      const msg = JSON.parse(event.data.halo) as { type: string; index?: number; message?: string };
+      if (event.source !== frame.current?.contentWindow || typeof event.data?.irada !== 'string') return;
+      const msg = JSON.parse(event.data.irada) as { type: string; index?: number; message?: string };
       if (msg.type === 'loaded') setLoaded(true);
       if (msg.type === 'select' && typeof msg.index === 'number') onSelectRef.current(msg.index);
       if (msg.type === 'error') setError(msg.message ?? 'Could not load the 3D model');
@@ -71,13 +71,13 @@ export const ModelViewer = forwardRef<ModelViewerHandle, Props>(function ModelVi
   }, []);
 
   useEffect(() => {
-    if (loaded) halo()?.select(selected);
+    if (loaded) api()?.select(selected);
   }, [loaded, selected]);
   useEffect(() => {
-    if (loaded) halo()?.setExploded(exploded);
+    if (loaded) api()?.setExploded(exploded);
   }, [loaded, exploded]);
   useEffect(() => {
-    if (loaded) halo()?.setAutoRotate(autoRotate);
+    if (loaded) api()?.setAutoRotate(autoRotate);
   }, [loaded, autoRotate]);
 
   return (

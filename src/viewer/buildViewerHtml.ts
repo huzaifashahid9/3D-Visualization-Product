@@ -3,10 +3,11 @@ import type { Part } from '../data/parts';
 import { colors } from '../theme';
 
 /**
- * The first camera angle: a three-quarter view from slightly above, pulled back
- * (125% of the fitted distance) so the exploded parts stay in frame.
+ * The first camera angle: a three-quarter view of the back of the headset from slightly
+ * above, so the signal core, battery and ear clips are in view. Pulled back (125% of the
+ * fitted distance) so the exploded parts stay in frame.
  */
-export const DEFAULT_ORBIT = '40deg 72deg 125%';
+export const DEFAULT_ORBIT = '-158deg 68deg 125%';
 
 interface Options {
   modelUri: string;
@@ -17,7 +18,7 @@ interface Options {
 /**
  * The page that runs inside the WebView. It hosts Google's <model-viewer>,
  * draws the numbered hotspots, and talks to React Native through postMessage
- * (taps on hotspots, load progress) and window.halo (commands from the app).
+ * (taps on hotspots, load progress) and window.irada (commands from the app).
  */
 export function buildViewerHtml({ modelUri, modelViewerScript, parts }: Options): string {
   const hotspots = parts
@@ -86,7 +87,7 @@ export function buildViewerHtml({ modelUri, modelViewerScript, parts }: Options)
     var data = JSON.stringify(msg);
     if (window.ReactNativeWebView) window.ReactNativeWebView.postMessage(data);
     // On web the page runs in an <iframe>; tell the app through the parent window.
-    else if (window.parent && window.parent !== window) window.parent.postMessage({ halo: data }, '*');
+    else if (window.parent && window.parent !== window) window.parent.postMessage({ irada: data }, '*');
   }
   function hotspotPosition(i) {
     var p = CONFIG.parts[i].position, o = CONFIG.parts[i].offset, k = exploded ? 1 : 0;
@@ -116,7 +117,7 @@ export function buildViewerHtml({ modelUri, modelViewerScript, parts }: Options)
     document.body.classList.remove('moving');
   });
 
-  window.halo = {
+  window.irada = {
     select: function (i) { selected = i; paintSelection(); },
     setAutoRotate: function (on) { mv.autoRotate = !!on; },
     setExploded: function (on) {

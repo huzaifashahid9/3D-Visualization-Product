@@ -7,9 +7,11 @@ export interface Step {
   image: ImageSourcePropType;
 }
 
+/** The five steps from the IRADA build document. */
 export const steps: Step[] = [
-  { title: 'Intend', body: 'The person thinks of a move.', image: images.stepBrain },
-  { title: 'Sense', body: 'Sensors pick up brain pulses.', image: images.stepSense },
-  { title: 'Decode', body: 'The chip reads the intent.', image: images.stepChip },
-  { title: 'Act', body: 'The chair moves forward.', image: images.stepWheelchair },
+  { title: 'Record', body: 'Scalp sensors pick up brain signals.', image: images.stepRecord },
+  { title: 'Clean', body: 'Blinks, muscle and mains noise come out.', image: images.stepClean },
+  { title: 'Decode', body: 'Your own model names the command.', image: images.stepDecode },
+  { title: 'Confirm', body: 'You say yes, or it cancels itself.', image: images.stepConfirm },
+  { title: 'Act', body: 'IRADA calls family, sends a message or asks for help.', image: images.stepAct },
 ];

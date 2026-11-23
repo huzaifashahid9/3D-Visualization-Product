@@ -3,7 +3,8 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { FloatingNav, type Route } from '../components/FloatingNav';
+import { FloatingNav } from '../components/FloatingNav';
+import type { Route } from '../navigation';
 import { Icon } from '../components/Icon';
 import { RoundButton } from '../components/RoundButton';
 import { parts } from '../data/parts';
@@ -182,7 +183,7 @@ const styles = StyleSheet.create({
   titleRow: { flexDirection: 'row', alignItems: 'baseline', gap: 10, marginTop: 4 },
   partNum: { fontFamily: fonts.extrabold, fontSize: 13, color: colors.accentOnWhite },
   partTitle: { fontFamily: fonts.extrabold, fontSize: 26, letterSpacing: -0.8, color: colors.black },
-  partBody: { fontFamily: fonts.medium, fontSize: 14, lineHeight: 21, color: colors.textOnWhite },
+  partBody: { fontFamily: fonts.medium, fontSize: 13.5, lineHeight: 19.5, color: colors.textOnWhite },
   specs: { flexDirection: 'row', gap: 8, marginTop: 2 },
   spec: { flex: 1, backgroundColor: colors.cardMuted, borderRadius: 16, paddingVertical: 9, paddingHorizontal: 14 },
   specLabel: { fontFamily: fonts.semibold, fontSize: 11, color: colors.labelOnWhite },

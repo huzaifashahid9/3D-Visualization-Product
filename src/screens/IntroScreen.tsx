@@ -8,7 +8,7 @@ import Svg, { Circle, Defs, RadialGradient, Stop } from 'react-native-svg';
 import { FloatingTag } from '../components/FloatingTag';
 import { Icon } from '../components/Icon';
 import { RoundButton } from '../components/RoundButton';
-import type { Route } from '../components/FloatingNav';
+import type { Route } from '../navigation';
 import { INTRO_VIDEO, PRODUCT_NAME, images } from '../config';
 import { colors, fonts, gradients } from '../theme';
 
@@ -46,7 +46,7 @@ export function IntroScreen({ onNavigate }: { onNavigate(route: Route): void }) 
   const { width } = useWindowDimensions();
   const [muted, setMuted] = useState(true);
   const [heroLayout, setHeroLayout] = useState({ width: 0, height: 0 });
-  const entrance = useEntrance(3);
+  const entrance = useEntrance(5);
 
   // Hero product: grows in, then floats and sways gently.
   const appear = useRef(new Animated.Value(0)).current;
@@ -102,7 +102,7 @@ export function IntroScreen({ onNavigate }: { onNavigate(route: Route): void }) 
             </Svg>
             <Animated.Image
               source={images.hero}
-              accessibilityLabel="The headset: a white band with violet sensors and two arcs over the head"
+              accessibilityLabel="The IRADA headset: a white band with an ear-to-ear arc of motor sensors, ear clips and a cancel button"
               resizeMode="contain"
               style={{
                 width: heroSize,
@@ -119,11 +119,11 @@ export function IntroScreen({ onNavigate }: { onNavigate(route: Route): void }) 
               <>
                 <FloatingTag label="Non-invasive" rotate="-8deg" style={{ left: 22, top: heroLayout.height * 0.18 }} />
                 <FloatingTag
-                  label="Reads intent"
+                  label="You confirm every action"
                   tone="white"
-                  rotate="6deg"
+                  rotate="5deg"
                   delay={400}
-                  style={{ right: 20, top: heroLayout.height * 0.78 }}
+                  style={{ right: 18, top: heroLayout.height * 0.8 }}
                 />
               </>
             )}
@@ -131,14 +131,16 @@ export function IntroScreen({ onNavigate }: { onNavigate(route: Route): void }) 
         )}
       </View>
 
-      <View style={[styles.copy, { paddingBottom: insets.bottom + 24 }]}>
-        <Animated.Text style={[styles.title, entrance[0]]} accessibilityRole="header">
+      <View style={[styles.copy, { paddingBottom: insets.bottom + 14 }]}>
+        <Animated.Text style={[styles.eyebrow, entrance[0]]}>Irada · ارادہ · means intention</Animated.Text>
+        <Animated.Text style={[styles.title, entrance[1]]} accessibilityRole="header">
           Turn intention{'\n'}into action.
         </Animated.Text>
-        <Animated.Text style={[styles.body, entrance[1]]}>
-          A head-worn device that reads brain and body pulses and turns what a person means to do into real actions.
+        <Animated.Text style={[styles.body, entrance[2]]}>
+          A brain-signal headset and phone app that lets people living with paralysis call family, send a message or
+          ask for help, using commands they have practised.
         </Animated.Text>
-        <Animated.View style={[styles.actions, entrance[2]]}>
+        <Animated.View style={[styles.actions, entrance[3]]}>
           <Pressable
             accessibilityRole="button"
             onPress={() => onNavigate('viewer')}
@@ -154,6 +156,18 @@ export function IntroScreen({ onNavigate }: { onNavigate(route: Route): void }) 
           >
             <Text style={[styles.buttonText, { color: colors.white }]}>How it works</Text>
           </Pressable>
+        </Animated.View>
+        <Animated.View style={[styles.footerRow, entrance[4]]}>
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => onNavigate('welcome')}
+            hitSlop={8}
+            style={({ pressed }) => [styles.tryLink, pressed && { opacity: 0.7 }]}
+          >
+            <Icon name="tablet" size={18} color={colors.lavender} />
+            <Text style={styles.tryText}>Try the app</Text>
+          </Pressable>
+          <Text style={styles.disclaimer}>Assistive prototype, not a medical device</Text>
         </Animated.View>
       </View>
     </LinearGradient>
@@ -182,7 +196,8 @@ const styles = StyleSheet.create({
   brandText: { fontFamily: fonts.extrabold, fontSize: 20, letterSpacing: -0.4, color: colors.white },
   hero: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   glow: { position: 'absolute' },
-  copy: { paddingHorizontal: 24, gap: 14 },
+  copy: { paddingHorizontal: 24, gap: 12 },
+  eyebrow: { fontFamily: fonts.bold, fontSize: 12, letterSpacing: 0.9, textTransform: 'uppercase', color: colors.lime },
   title: {
     fontFamily: fonts.extrabold,
     fontSize: 42,
@@ -191,7 +206,11 @@ const styles = StyleSheet.create({
     color: colors.white,
   },
   body: { fontFamily: fonts.medium, fontSize: 16, lineHeight: 24, color: colors.lavender },
-  actions: { flexDirection: 'row', gap: 10, marginTop: 14 },
+  actions: { flexDirection: 'row', gap: 10, marginTop: 10 },
+  footerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
+  tryLink: { height: 44, flexDirection: 'row', alignItems: 'center', gap: 8 },
+  tryText: { fontFamily: fonts.semibold, fontSize: 14, color: colors.lavender },
+  disclaimer: { flexShrink: 1, textAlign: 'right', fontFamily: fonts.semibold, fontSize: 11, color: colors.muted },
   button: {
     flex: 1,
     height: 58,

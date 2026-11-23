@@ -19,6 +19,11 @@ export const colors = {
   labelOnWhite: '#625D78',
   accentOnWhite: '#6A47FA',
   textOnLime: '#2E3800',
+  limeLabel: '#3A4700',
+  /** Signal and outcome colours: good, weak, poor (document: green, yellow, red). */
+  good: '#7CC400',
+  weak: '#F5B83D',
+  poor: '#FF5C6C',
 };
 
 /** Background gradients, top to bottom. */
@@ -28,6 +33,10 @@ export const gradients = {
   viewer: [colors.violetDeep, colors.night, colors.ink] as const,
   viewerStops: [0, 0.55, 1] as const,
   stage: [colors.stageTop, colors.stageMid, colors.stageBottom] as const,
+  bright: [colors.violet, colors.violetDeep, colors.night] as const,
+  brightStops: [0, 0.4, 1] as const,
+  emergency: [colors.night, colors.ink, colors.black] as const,
+  emergencyStops: [0, 0.6, 1] as const,
 };
 
 export const fonts = {
