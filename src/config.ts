@@ -4,8 +4,8 @@ import type { ImageSourcePropType } from 'react-native';
  * One place for the things you are likely to change before a pitch.
  */
 
-/** Working name shown in the app. Replace with the real product name. */
-export const PRODUCT_NAME = 'halo';
+/** Product name shown in the app. IRADA is Urdu for intention or will. */
+export const PRODUCT_NAME = 'irada';
 
 /**
  * Intro film. Leave as null to show the floating 3D headset render instead.
@@ -32,8 +32,9 @@ export const ASSEMBLE_ANIMATION = 'Assemble';
 export const images: Record<string, ImageSourcePropType> = {
   hero: require('../assets/images/hero.png'),
   viewerPoster: require('../assets/images/viewer-poster.png'),
-  stepBrain: require('../assets/images/step-brain.png'),
-  stepSense: require('../assets/images/step-sense.png'),
-  stepChip: require('../assets/images/step-chip.png'),
-  stepWheelchair: require('../assets/images/step-wheelchair.png'),
+  stepRecord: require('../assets/images/step-record.png'),
+  stepClean: require('../assets/images/step-clean.png'),
+  stepDecode: require('../assets/images/step-decode.png'),
+  stepConfirm: require('../assets/images/step-confirm.png'),
+  stepAct: require('../assets/images/step-act.png'),
 };

@@ -9,7 +9,7 @@
  * explodedOffset is how far that part moves in the "Explode" animation, so the
  * hotspot can follow it. Use [0, 0, 0] for parts that do not move.
  *
- * Values in [brackets] are placeholders for the real specs.
+ * Specs come from the IRADA build document. Values in [brackets] are still to be decided.
  */
 export type Vec3 = [number, number, number];
 
@@ -25,51 +25,75 @@ export interface Part {
 
 export const parts: Part[] = [
   {
-    id: 'eeg',
-    title: 'EEG sensors',
-    body: 'Electrodes rest on the scalp and pick up the brain’s tiny electrical signals.',
+    id: 'motor',
+    title: 'Motor sensors',
+    body: 'Three electrodes on an ear-to-ear arc sit over the motor area. They pick up the signal when the user imagines a movement they have practised.',
     specs: [
-      { label: 'Channels', value: '[number]' },
-      { label: 'Contact', value: '[dry or gel]' },
+      { label: 'Positions', value: 'C3 · Cz · C4' },
+      { label: 'Layout', value: '10-20 system' },
     ],
-    position: [0.835, 0.75, 0],
-    normal: [0.766, 0.643, 0],
-    explodedOffset: [0, 0.45, 0],
+    position: [0, 1.15, 0],
+    normal: [0, 1, 0],
+    explodedOffset: [0, 0.5, 0],
+  },
+  {
+    id: 'helper',
+    title: 'Helper sensors',
+    body: 'Oz at the back of the head tracks the alpha rhythm, and Fp1 on the forehead catches blinks so they can be cleaned out of the signal.',
+    specs: [
+      { label: 'Oz', value: 'Alpha rhythm' },
+      { label: 'Fp1', value: 'Blinks' },
+    ],
+    position: [0, 0, -1.32],
+    normal: [0, 0, -1],
+    explodedOffset: [0, 0, 0],
+  },
+  {
+    id: 'ear-clips',
+    title: 'Ear clips',
+    body: 'Ground and reference electrodes rest on the bone behind each ear and give every other sensor a steady zero to measure against.',
+    specs: [
+      { label: 'Placement', value: 'Behind each ear' },
+      { label: 'Role', value: 'Ground + reference' },
+    ],
+    position: [1.078, -0.48, -0.506],
+    normal: [0.948, 0, -0.319],
+    explodedOffset: [0, 0, 0],
+  },
+  {
+    id: 'core',
+    title: 'Signal core',
+    body: 'An amplifier and converter turn microvolt brain signals into data, and an ESP32 sends it to the phone over Bluetooth Low Energy.',
+    specs: [
+      { label: 'Sampling', value: '~250 per second' },
+      { label: 'Link', value: 'Bluetooth LE' },
+    ],
+    position: [0.658, 0, -1.288],
+    normal: [0.569, 0, -0.822],
+    explodedOffset: [0.353, 0, -0.51],
   },
   {
     id: 'battery',
     title: 'Battery',
-    body: 'Sits at the back of the head to balance the weight through long sessions.',
+    body: 'A rechargeable cell with a protection and charging circuit. The headset only ever runs on battery, never on mains power.',
     specs: [
-      { label: 'Battery life', value: '[hours]' },
-      { label: 'Charging', value: '[type]' },
+      { label: 'Cell', value: '3.7 V LiPo' },
+      { label: 'Capacity', value: '1,000–2,000 mAh' },
     ],
-    position: [0, 0.02, -1.395],
-    normal: [0, 0, -1],
-    explodedOffset: [0, 0, -0.45],
+    position: [-0.658, 0, -1.288],
+    normal: [-0.569, 0, -0.822],
+    explodedOffset: [-0.353, 0, -0.51],
   },
   {
-    id: 'processor',
-    title: 'Processor',
-    body: 'Turns raw signals into a command and sends it to the chair, phone or home.',
+    id: 'cancel',
+    title: 'Cancel button',
+    body: 'A physical button and status light. Pressing the button always cancels, whatever the app is doing.',
     specs: [
-      { label: 'Chip', value: '[model]' },
-      { label: 'Response time', value: '[ms]' },
+      { label: 'Button', value: 'Always cancels' },
+      { label: 'Light', value: '[states]' },
     ],
-    position: [1.22, 0, 0.2],
-    normal: [1, 0, 0],
-    explodedOffset: [0.4, 0, 0],
-  },
-  {
-    id: 'status',
-    title: 'Status light',
-    body: 'Shows the wearer and carer when the band is connected, reading or sending.',
-    specs: [
-      { label: 'Connection', value: '[Bluetooth]' },
-      { label: 'States', value: '[list]' },
-    ],
-    position: [0, 0, 1.3],
-    normal: [0, 0, 1],
-    explodedOffset: [0, 0, 0],
+    position: [-1.082, 0, 0.664],
+    normal: [-0.914, 0, 0.405],
+    explodedOffset: [-0.366, 0, 0.162],
   },
 ];

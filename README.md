@@ -1,23 +1,48 @@
-# Halo pitch app
+# IRADA pitch app
 
-A mobile app for pitching a head-worn device that reads brain and body pulses and turns what a person
-intends into real actions, for people living with paralysis. It shows the device the way product ads do:
-a cinematic intro, a 3D model you can spin, zoom and take apart, and a short animated story of how a
-thought becomes a movement.
+IRADA (Urdu for intention) is a brain-signal headset, a phone app and an AI agent that lets people living
+with paralysis call family, send a message or ask for help, using commands they have practised, with a
+confirmation step before anything happens. There is no physical product yet, so this app shows the headset
+as an interactive 3D model, the way product ads do, and lets people try a simulated version of the IRADA app.
+
+Everything in the app follows the IRADA Master Build Document. IRADA is an assistive prototype, not a
+medical device, and the app says so.
 
 Built with React Native and Expo (SDK 58). It runs in the **Expo Go** app, so you don't need Xcode or
 Android Studio.
 
-> "Halo" is a working name. The 3D headset is a placeholder until the real model is ready, and values in
-> `[brackets]` are slots for the real specs.
+> The 3D headset is a placeholder built from the document's design until the real model is ready. Values in
+> `[brackets]` are still to be decided, and names, times and charts in the demo are samples.
 
-## The three screens
+## The screens
+
+**Pitch screens**
 
 | Screen | What it does |
 | --- | --- |
-| **Intro** | Violet hero with the headset floating and swaying, two floating tags and big headline. Buttons go to the 3D viewer and the "how it works" story. Can play a looping product film instead (see below). |
-| **Explore in 3D** | Real-time 3D model. Drag to rotate, pinch or use the + and − buttons to zoom, and it spins on its own when idle (toggle with the spin button). Numbered hotspots stay pinned to the parts as the model turns. Tap a hotspot or a chip in the white card to read about that part. **Exploded** pulls the crown, battery and processor apart. |
-| **How it works** | Four glossy 3D cards (Intend, Sense, Decode, Act) light up one after another on a loop. Tap a card to pause on it, or use the play and pause button. |
+| **Intro** | Violet hero with the headset floating, two floating tags and the headline. Buttons go to the 3D viewer, How it works and the app demo. Can play a looping product film instead (see below). |
+| **Explore in 3D** | Real-time 3D headset. Drag to rotate, pinch or use + and − to zoom, and it spins on its own when idle. Six hotspots: motor sensors (C3, Cz, C4), helper sensors (Oz, Fp1), ear clips, signal core, battery and cancel button. **Exploded** lifts the motor arc and opens the core and battery. |
+| **How it works** | The five steps from the document (Record, Clean, Decode, Confirm, Act) light up one after another. Tap a card to pause on it. |
+
+**The IRADA app, simulated** (the phone tab in the bottom menu; document section 12.3)
+
+| Screen | What it does |
+| --- | --- |
+| Welcome and profile | Choose the person, English or Urdu, whether a caregiver is here, and the privacy promise. Links to the caregiver and therapist views. |
+| Headset check | Contact for each sensor in green, yellow or red with a fix tip. **Check again** fixes them. |
+| Calibration | Get ready, imagine, rest, with a countdown and trial counter. Ends on the accuracy per command. |
+| Home menu | Big tiles for Call caregiver, Send message and Emergency alert, with a highlight that moves on its own. |
+| Intent detected | The command and its confidence, with Confirm and Cancel. |
+| Recipient and message | Pick a contact and a preset message. |
+| Confirmation | Full-screen question with a 10 second countdown that cancels by itself. |
+| Result | What happened and when, and what a failure looks like. |
+| Emergency | Needs two yeses in a row (or a caregiver tap) and shares the location. |
+| Activity log | Every action with time, confidence and outcome. Actions from the demo are added at the top. |
+| Settings and safety | Timeouts, caregiver-only locks, the cancel button, language, and delete or export my data. |
+
+**Caregiver and therapist views** (document section 12.1): the caregiver can see the headset, cancel a
+pending action or pause IRADA; the therapist view (marked "later" in the document) shows progress over
+sessions with sample data.
 
 ## Run it on your phone with Expo Go
 
@@ -103,8 +128,10 @@ The app shows a placeholder headset built from simple shapes. When you have the 
 - Product name, film and model settings: `src/config.ts`
 - Hotspot text and specs: `src/data/parts.ts`
 - "How it works" steps and their images: `src/data/steps.ts`
+- Demo contacts, messages, sensors and sample log: `src/demo/data.ts`
 - Colors, gradients and fonts: `src/theme.ts`
 - Intro headline and buttons: `src/screens/IntroScreen.tsx`
+- The IRADA app screens: `src/screens/app/`
 
 ## How it's built
 
@@ -114,8 +141,10 @@ The app shows a placeholder headset built from simple shapes. When you have the 
   `injectJavaScript` (explode, spin, zoom). The model-viewer script is bundled in
   `src/viewer/generated/modelViewerLib.ts` by `npm run vendor`.
 - **Fonts:** Plus Jakarta Sans via `@expo-google-fonts`.
-- **Screens:** `src/screens/`, with a simple cross-fade between them in `App.tsx`. The Android back button
-  returns to the intro.
+- **Screens:** `src/screens/` (pitch) and `src/screens/app/` (the simulated IRADA app), with a cross-fade
+  between them in `App.tsx`. The list of screens and where the Android back button goes is in
+  `src/navigation.ts`. The demo's state (chosen action, contact, message, activity log) lives in
+  `src/demo/DemoContext.tsx`.
 
 | Command | What it does |
 | --- | --- |

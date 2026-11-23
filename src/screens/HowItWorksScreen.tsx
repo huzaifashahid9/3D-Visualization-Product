@@ -3,14 +3,27 @@ import { Animated, Easing, Pressable, ScrollView, StyleSheet, Text, View } from 
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { FloatingNav, type Route } from '../components/FloatingNav';
+import { FloatingNav } from '../components/FloatingNav';
+import type { Route } from '../navigation';
 import { RoundButton } from '../components/RoundButton';
 import { steps, type Step } from '../data/steps';
 import { colors, fonts, gradients, radius } from '../theme';
 
 const STEP_MS = 1700;
 
-function StepCard({ step, index, active, onPress }: { step: Step; index: number; active: boolean; onPress(): void }) {
+function StepCard({
+  step,
+  index,
+  active,
+  wide,
+  onPress,
+}: {
+  step: Step;
+  index: number;
+  active: boolean;
+  wide: boolean;
+  onPress(): void;
+}) {
   const lift = useRef(new Animated.Value(active ? 1 : 0)).current;
   const bob = useRef(new Animated.Value(0)).current;
 
@@ -33,7 +46,7 @@ function StepCard({ step, index, active, onPress }: { step: Step; index: number;
   return (
     <Animated.View
       style={[
-        styles.cardWrap,
+        wide ? styles.cardWrapWide : styles.cardWrap,
         {
           transform: [
             { translateY: lift.interpolate({ inputRange: [0, 1], outputRange: [0, -4] }) },
@@ -47,14 +60,14 @@ function StepCard({ step, index, active, onPress }: { step: Step; index: number;
         accessibilityState={{ selected: active }}
         accessibilityLabel={`Step ${index + 1}, ${step.title}. ${step.body}`}
         onPress={onPress}
-        style={[styles.card, active ? styles.cardOn : styles.cardOff]}
+        style={[styles.card, wide && styles.cardWide, active ? styles.cardOn : styles.cardOff]}
       >
-        <View style={[styles.disc, active ? styles.discOn : styles.discOff]}>
+        <View style={[styles.disc, wide && styles.discWide, active ? styles.discOn : styles.discOff]}>
           <Animated.Image
             source={step.image}
             resizeMode="contain"
             style={[
-              styles.icon,
+              wide ? styles.iconWide : styles.icon,
               {
                 transform: [
                   { translateY: bob.interpolate({ inputRange: [0, 1], outputRange: [3, -5] }) },
@@ -64,9 +77,11 @@ function StepCard({ step, index, active, onPress }: { step: Step; index: number;
             ]}
           />
         </View>
-        <Text style={[styles.num, { color: active ? '#3A4700' : colors.lime }]}>0{index + 1}</Text>
-        <Text style={[styles.title, { color: active ? colors.black : colors.white }]}>{step.title}</Text>
-        <Text style={[styles.body, { color: active ? colors.textOnLime : colors.lavender }]}>{step.body}</Text>
+        <View style={wide ? styles.textWide : styles.text}>
+          <Text style={[styles.num, { color: active ? colors.limeLabel : colors.lime }]}>0{index + 1}</Text>
+          <Text style={[styles.title, { color: active ? colors.black : colors.white }]}>{step.title}</Text>
+          <Text style={[styles.body, { color: active ? colors.textOnLime : colors.lavender }]}>{step.body}</Text>
+        </View>
       </Pressable>
     </Animated.View>
   );
@@ -98,9 +113,9 @@ export function HowItWorksScreen({ onNavigate }: { onNavigate(route: Route): voi
           />
         </View>
         <Text style={styles.heading} accessibilityRole="header">
-          From thought{'\n'}to action
+          From intention{'\n'}to action
         </Text>
-        <Text style={styles.sub}>Four steps between meaning to move and moving.</Text>
+        <Text style={styles.sub}>Five steps, and nothing runs until you say yes.</Text>
 
         <View style={styles.grid}>
           {steps.map((step, i) => (
@@ -109,6 +124,7 @@ export function HowItWorksScreen({ onNavigate }: { onNavigate(route: Route): voi
               step={step}
               index={i}
               active={i === active}
+              wide={i === steps.length - 1 && steps.length % 2 === 1}
               onPress={() => {
                 setActive(i);
                 setPaused(true);
@@ -140,23 +156,25 @@ const styles = StyleSheet.create({
     marginTop: 14,
     paddingHorizontal: 4,
     fontFamily: fonts.extrabold,
-    fontSize: 38,
-    lineHeight: 40,
+    fontSize: 36,
+    lineHeight: 38,
     letterSpacing: -1.3,
     color: colors.white,
   },
   sub: { marginTop: 14, paddingHorizontal: 4, fontFamily: fonts.medium, fontSize: 15, lineHeight: 22, color: colors.lavender },
-  grid: { marginTop: 22, flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 12 },
-  cardWrap: { width: '48.2%' },
+  grid: { marginTop: 20, flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 10 },
+  cardWrap: { width: '48.4%' },
+  cardWrapWide: { width: '100%' },
   card: {
-    minHeight: 226,
+    minHeight: 172,
     borderRadius: radius.step,
-    paddingTop: 12,
+    paddingTop: 10,
     paddingHorizontal: 14,
-    paddingBottom: 14,
-    gap: 3,
+    paddingBottom: 12,
+    gap: 2,
     borderWidth: 1,
   },
+  cardWide: { minHeight: 128, flexDirection: 'row', alignItems: 'center', gap: 14, paddingLeft: 12, paddingRight: 18 },
   cardOn: {
     backgroundColor: colors.lime,
     borderColor: colors.lime,
@@ -169,17 +187,21 @@ const styles = StyleSheet.create({
   cardOff: { backgroundColor: colors.glassSoft, borderColor: colors.glassBorder },
   disc: {
     alignSelf: 'center',
-    width: 124,
-    height: 124,
-    borderRadius: 62,
-    marginBottom: 4,
+    width: 78,
+    height: 78,
+    borderRadius: 39,
+    marginBottom: 2,
     alignItems: 'center',
     justifyContent: 'center',
   },
+  discWide: { width: 104, height: 104, borderRadius: 52, marginBottom: 0 },
+  text: { gap: 2 },
+  textWide: { flex: 1, gap: 2 },
   discOn: { backgroundColor: 'rgba(14,11,26,0.07)' },
   discOff: { backgroundColor: colors.glassSoft },
-  icon: { width: 118, height: 118 },
+  icon: { width: 76, height: 76 },
+  iconWide: { width: 100, height: 100 },
   num: { fontFamily: fonts.extrabold, fontSize: 12 },
-  title: { fontFamily: fonts.extrabold, fontSize: 20, letterSpacing: -0.4 },
-  body: { fontFamily: fonts.medium, fontSize: 13, lineHeight: 18 },
+  title: { fontFamily: fonts.extrabold, fontSize: 19, letterSpacing: -0.4 },
+  body: { fontFamily: fonts.medium, fontSize: 12.5, lineHeight: 17 },
 });

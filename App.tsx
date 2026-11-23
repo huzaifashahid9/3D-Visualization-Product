@@ -9,11 +9,47 @@ import { PlusJakartaSans_600SemiBold } from '@expo-google-fonts/plus-jakarta-san
 import { PlusJakartaSans_700Bold } from '@expo-google-fonts/plus-jakarta-sans/700Bold';
 import { PlusJakartaSans_800ExtraBold } from '@expo-google-fonts/plus-jakarta-sans/800ExtraBold';
 
-import type { Route } from './src/components/FloatingNav';
+import { FloatingNav } from './src/components/FloatingNav';
+import { DemoProvider } from './src/demo/DemoContext';
+import { backRoute, type Route, type ScreenProps } from './src/navigation';
 import { HowItWorksScreen } from './src/screens/HowItWorksScreen';
 import { IntroScreen } from './src/screens/IntroScreen';
 import { ViewerScreen } from './src/screens/ViewerScreen';
+import { CaregiverScreen, ClinicianScreen } from './src/screens/app/CareScreens';
+import {
+  ConfirmScreen,
+  EmergencyScreen,
+  HomeScreen,
+  IntentScreen,
+  RecipientScreen,
+  ResultScreen,
+} from './src/screens/app/FlowScreens';
+import { LogScreen, SettingsScreen } from './src/screens/app/RecordScreens';
+import { CalibrationScreen, CalResultScreen, HeadsetScreen, WelcomeScreen } from './src/screens/app/SetupScreens';
 import { colors } from './src/theme';
+
+const screens: Record<Route, (props: ScreenProps) => React.JSX.Element> = {
+  intro: IntroScreen,
+  viewer: ViewerScreen,
+  how: HowItWorksScreen,
+  welcome: WelcomeScreen,
+  headset: HeadsetScreen,
+  calibration: CalibrationScreen,
+  calResult: CalResultScreen,
+  home: HomeScreen,
+  intent: IntentScreen,
+  recipient: RecipientScreen,
+  confirm: ConfirmScreen,
+  result: ResultScreen,
+  emergency: EmergencyScreen,
+  log: LogScreen,
+  settings: SettingsScreen,
+  caregiver: CaregiverScreen,
+  clinician: ClinicianScreen,
+};
+
+/** Screens of the simulated app that show the floating menu (the viewer and How it works draw their own). */
+const withNav: Route[] = ['welcome', 'home', 'caregiver', 'clinician'];
 
 export default function App() {
   const [fontsLoaded] = useFonts({
@@ -29,46 +65,58 @@ export default function App() {
   const navigate = useCallback(
     (next: Route) => {
       if (next === route) return;
-      Animated.timing(fade, { toValue: 0, duration: 160, easing: Easing.out(Easing.quad), useNativeDriver: true }).start(
-        () => {
-          setRoute(next);
-          Animated.timing(fade, { toValue: 1, duration: 260, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start();
-        },
-      );
+      Animated.timing(fade, {
+        toValue: 0,
+        duration: 160,
+        easing: Easing.out(Easing.quad),
+        useNativeDriver: true,
+      }).start(() => {
+        setRoute(next);
+        Animated.timing(fade, {
+          toValue: 1,
+          duration: 260,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: true,
+        }).start();
+      });
     },
     [fade, route],
   );
 
-  // Android back button returns to the intro instead of closing the app.
+  // Android back button steps back through the app instead of closing it.
   useEffect(() => {
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
-      if (route === 'intro') return false;
-      navigate('intro');
+      const back = backRoute[route];
+      if (!back) return false;
+      navigate(back);
       return true;
     });
     return () => sub.remove();
   }, [route, navigate]);
 
+  const Current = screens[route];
+
   return (
     <SafeAreaProvider>
-      <StatusBar style="light" />
-      <View style={styles.root}>
-        {fontsLoaded && (
-          <Animated.View
-            style={[
-              styles.root,
-              {
-                opacity: fade,
-                transform: [{ scale: fade.interpolate({ inputRange: [0, 1], outputRange: [0.985, 1] }) }],
-              },
-            ]}
-          >
-            {route === 'intro' && <IntroScreen onNavigate={navigate} />}
-            {route === 'viewer' && <ViewerScreen onNavigate={navigate} />}
-            {route === 'how' && <HowItWorksScreen onNavigate={navigate} />}
-          </Animated.View>
-        )}
-      </View>
+      <DemoProvider>
+        <StatusBar style="light" />
+        <View style={styles.root}>
+          {fontsLoaded && (
+            <Animated.View
+              style={[
+                styles.root,
+                {
+                  opacity: fade,
+                  transform: [{ scale: fade.interpolate({ inputRange: [0, 1], outputRange: [0.985, 1] }) }],
+                },
+              ]}
+            >
+              <Current onNavigate={navigate} />
+              {withNav.includes(route) && <FloatingNav current={route} onNavigate={navigate} />}
+            </Animated.View>
+          )}
+        </View>
+      </DemoProvider>
     </SafeAreaProvider>
   );
 }
