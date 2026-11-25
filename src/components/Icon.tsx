@@ -40,7 +40,8 @@ export type IconName =
   | 'trash'
   | 'clock'
   | 'headset'
-  | 'tablet';
+  | 'tablet'
+  | 'external';
 
 interface Props {
   name: IconName;
@@ -148,6 +149,7 @@ export function Icon({ name, size = 22, color = '#FFFFFF', strokeWidth = 2 }: Pr
       {name === 'trash' && (<><Path {...common} d="M3 6h18" /><Path {...common} d="M8 6V4h8v2" /><Path {...common} d="M6 6l1 15h10l1-15" /></>)}
       {name === 'clock' && (<><Circle {...common} cx={12} cy={12} r={9} /><Path {...common} d="M12 7v5l3 2" /></>)}
       {name === 'headset' && (<><Ellipse {...common} cx={12} cy={16} rx={9} ry={3.4} /><Path {...common} d="M3.5 15C4 5 20 5 20.5 15" /><Circle cx={12} cy={6.6} r={1.6} fill={color} /></>)}
+      {name === 'external' && (<><Path {...common} d="M14 4h6v6" /><Path {...common} d="M20 4 10 14" /><Path {...common} d="M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5" /></>)}
       {name === 'tablet' && (<><Rect {...common} x={6} y={2} width={12} height={20} rx={3} /><Path {...common} d="M11 18h2" /></>)}
     </Svg>
   );

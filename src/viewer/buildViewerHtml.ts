@@ -34,7 +34,7 @@ export function buildViewerHtml({ modelUri, modelViewerScript, parts }: Options)
     .join('');
 
   const config = JSON.stringify({
-    parts: parts.map((p) => ({ position: p.position, offset: p.explodedOffset })),
+    parts: parts.map((p) => ({ position: p.position, normal: p.normal, offset: p.explodedOffset })),
     explode: EXPLODE_ANIMATION,
     assemble: ASSEMBLE_ANIMATION,
     orbit: DEFAULT_ORBIT,
@@ -79,6 +79,7 @@ export function buildViewerHtml({ modelUri, modelViewerScript, parts }: Options)
 <script>
 (function () {
   var CONFIG = ${config};
+  var loaded = false;
   var mv = document.getElementById('mv');
   var exploded = false;
   var selected = 0;
@@ -108,7 +109,7 @@ export function buildViewerHtml({ modelUri, modelViewerScript, parts }: Options)
   });
 
   mv.addEventListener('progress', function (e) { post({ type: 'progress', value: e.detail.totalProgress }); });
-  mv.addEventListener('load', function () { post({ type: 'loaded' }); });
+  mv.addEventListener('load', function () { loaded = true; post({ type: 'loaded' }); });
   mv.addEventListener('error', function (e) {
     post({ type: 'error', message: String((e.detail && e.detail.type) || 'Could not load the 3D model') });
   });
@@ -119,6 +120,15 @@ export function buildViewerHtml({ modelUri, modelViewerScript, parts }: Options)
 
   window.irada = {
     select: function (i) { selected = i; paintSelection(); },
+    // Turns the camera to face part i, from the side its hotspot points to.
+    focus: function (i) {
+      if (!loaded || !CONFIG.parts[i]) return;
+      var n = CONFIG.parts[i].normal;
+      var theta = Math.atan2(n[0], n[2]);
+      var phi = n[1] > 0.7 ? 40 : 72;
+      // Keep the current zoom.
+      mv.cameraOrbit = theta + 'rad ' + phi + 'deg ' + mv.getCameraOrbit().radius + 'm';
+    },
     setAutoRotate: function (on) { mv.autoRotate = !!on; },
     setExploded: function (on) {
       on = !!on;

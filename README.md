@@ -152,3 +152,4 @@ The app shows a placeholder headset built from simple shapes. When you have the 
 | `npm run typecheck` | Check the TypeScript |
 | `npm run model` | Embed `assets/models/headset.glb` (or a path you pass) into the app |
 | `npm run vendor` | Re-bundle model-viewer after upgrading `@google/model-viewer` |
+| `python3 scripts/make-icons.py` | Rebuild the app icons and favicon from `src/assets/logos/irada-logo-transparent.png` (needs `pip install pillow numpy`) |

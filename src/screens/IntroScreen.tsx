@@ -5,11 +5,14 @@ import { useVideoPlayer, VideoView } from 'expo-video';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle, Defs, RadialGradient, Stop } from 'react-native-svg';
 
+import { Brand } from '../components/Brand';
 import { FloatingTag } from '../components/FloatingTag';
 import { Icon } from '../components/Icon';
 import { RoundButton } from '../components/RoundButton';
-import type { Route } from '../navigation';
-import { INTRO_VIDEO, PRODUCT_NAME, images } from '../config';
+import type { ScreenProps } from '../navigation';
+import { INTRO_VIDEO, WEBSITE_LABEL, images } from '../config';
+import { useDemo } from '../demo/DemoContext';
+import { openWebsite } from '../demo/website';
 import { colors, fonts, gradients } from '../theme';
 
 /** Fades and slides a block up into place, one after another. */
@@ -41,8 +44,9 @@ function IntroVideo({ source, muted }: { source: number; muted: boolean }) {
   return <VideoView player={player} style={StyleSheet.absoluteFill} contentFit="cover" nativeControls={false} />;
 }
 
-export function IntroScreen({ onNavigate }: { onNavigate(route: Route): void }) {
+export function IntroScreen({ onNavigate }: ScreenProps) {
   const insets = useSafeAreaInsets();
+  const { setToast } = useDemo();
   const { width } = useWindowDimensions();
   const [muted, setMuted] = useState(true);
   const [heroLayout, setHeroLayout] = useState({ width: 0, height: 0 });
@@ -63,7 +67,10 @@ export function IntroScreen({ onNavigate }: { onNavigate(route: Route): void }) 
     return () => loop.stop();
   }, [appear, float]);
 
-  const heroSize = Math.min(width + 10, 460);
+  // The hero fills the space between the top bar and the text, but never more, so on small
+  // phones (or with large text) it shrinks instead of sliding under the headline.
+  const fitted = heroLayout.height > 0 ? heroLayout.height / (720 / 760) : Infinity;
+  const heroSize = Math.max(Math.min(width + 10, 460, fitted), 0);
   const glowSize = heroSize * 0.82;
 
   return (
@@ -71,24 +78,33 @@ export function IntroScreen({ onNavigate }: { onNavigate(route: Route): void }) 
       {INTRO_VIDEO != null && <IntroVideo source={INTRO_VIDEO} muted={muted} />}
 
       <View style={[styles.topBar, { paddingTop: insets.top + 12 }]}>
-        <View style={styles.brand}>
-          <View style={styles.logo}>
-            <Icon name="logo" size={22} color={colors.black} strokeWidth={2.4} />
-          </View>
-          <Text style={styles.brandText}>{PRODUCT_NAME}</Text>
+        <Brand height={20} />
+        <View style={styles.topRight}>
+          <Pressable
+            accessibilityRole="link"
+            accessibilityLabel={`Visit ${WEBSITE_LABEL}, opens in the browser`}
+            onPress={() => openWebsite(setToast)}
+            hitSlop={6}
+            style={({ pressed }) => [styles.site, pressed && styles.pressed]}
+          >
+            <Text style={styles.siteText} maxFontSizeMultiplier={1.3}>
+              {WEBSITE_LABEL}
+            </Text>
+            <Icon name="external" size={14} color={colors.white} strokeWidth={2.4} />
+          </Pressable>
+          {INTRO_VIDEO != null && (
+            <RoundButton
+              icon={muted ? 'soundOff' : 'soundOn'}
+              label={muted ? 'Turn sound on' : 'Turn sound off'}
+              size={44}
+              onPress={() => setMuted((m) => !m)}
+            />
+          )}
         </View>
-        {INTRO_VIDEO != null && (
-          <RoundButton
-            icon={muted ? 'soundOff' : 'soundOn'}
-            label={muted ? 'Turn sound on' : 'Turn sound off'}
-            size={44}
-            onPress={() => setMuted((m) => !m)}
-          />
-        )}
       </View>
 
       <View style={styles.hero} onLayout={(e) => setHeroLayout(e.nativeEvent.layout)}>
-        {INTRO_VIDEO == null && (
+        {INTRO_VIDEO == null && heroLayout.height > 0 && (
           <>
             <Svg width={glowSize} height={glowSize} style={styles.glow}>
               <Defs>
@@ -115,7 +131,7 @@ export function IntroScreen({ onNavigate }: { onNavigate(route: Route): void }) 
                 ],
               }}
             />
-            {heroLayout.height > 0 && (
+            {heroLayout.height > 140 && (
               <>
                 <FloatingTag label="Non-invasive" rotate="-8deg" style={{ left: 22, top: heroLayout.height * 0.18 }} />
                 <FloatingTag
@@ -133,7 +149,7 @@ export function IntroScreen({ onNavigate }: { onNavigate(route: Route): void }) 
 
       <View style={[styles.copy, { paddingBottom: insets.bottom + 14 }]}>
         <Animated.Text style={[styles.eyebrow, entrance[0]]}>Irada · ارادہ · means intention</Animated.Text>
-        <Animated.Text style={[styles.title, entrance[1]]} accessibilityRole="header">
+        <Animated.Text style={[styles.title, entrance[1]]} accessibilityRole="header" maxFontSizeMultiplier={1.3}>
           Turn intention{'\n'}into action.
         </Animated.Text>
         <Animated.Text style={[styles.body, entrance[2]]}>
@@ -144,17 +160,23 @@ export function IntroScreen({ onNavigate }: { onNavigate(route: Route): void }) 
           <Pressable
             accessibilityRole="button"
             onPress={() => onNavigate('viewer')}
+            hitSlop={4}
             style={({ pressed }) => [styles.button, styles.primary, pressed && styles.pressed]}
           >
-            <Text style={[styles.buttonText, { color: colors.black }]}>Explore in 3D</Text>
+            <Text style={[styles.buttonText, { color: colors.black }]} numberOfLines={1} maxFontSizeMultiplier={1.4}>
+              Explore in 3D
+            </Text>
             <Icon name="arrow" size={18} color={colors.black} strokeWidth={2.2} />
           </Pressable>
           <Pressable
             accessibilityRole="button"
             onPress={() => onNavigate('how')}
+            hitSlop={4}
             style={({ pressed }) => [styles.button, styles.secondary, pressed && styles.pressed]}
           >
-            <Text style={[styles.buttonText, { color: colors.white }]}>How it works</Text>
+            <Text style={[styles.buttonText, { color: colors.white }]} numberOfLines={1} maxFontSizeMultiplier={1.4}>
+              How it works
+            </Text>
           </Pressable>
         </Animated.View>
         <Animated.View style={[styles.footerRow, entrance[4]]}>
@@ -184,19 +206,22 @@ const styles = StyleSheet.create({
     minHeight: 44,
     zIndex: 2,
   },
-  brand: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  logo: {
-    width: 36,
-    height: 36,
-    borderRadius: 12,
-    backgroundColor: colors.lime,
+  topRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  site: {
+    minHeight: 40,
+    paddingHorizontal: 14,
+    borderRadius: 20,
+    backgroundColor: colors.glass,
+    borderWidth: 1,
+    borderColor: colors.glassBorder,
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    gap: 6,
   },
-  brandText: { fontFamily: fonts.extrabold, fontSize: 20, letterSpacing: -0.4, color: colors.white },
-  hero: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  siteText: { fontFamily: fonts.bold, fontSize: 13, color: colors.white },
+  hero: { flex: 1, minHeight: 0, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
   glow: { position: 'absolute' },
-  copy: { paddingHorizontal: 24, gap: 12 },
+  copy: { paddingHorizontal: 24, gap: 12, width: '100%', maxWidth: 640, alignSelf: 'center' },
   eyebrow: { fontFamily: fonts.bold, fontSize: 12, letterSpacing: 0.9, textTransform: 'uppercase', color: colors.lime },
   title: {
     fontFamily: fonts.extrabold,
@@ -213,7 +238,8 @@ const styles = StyleSheet.create({
   disclaimer: { flexShrink: 1, textAlign: 'right', fontFamily: fonts.semibold, fontSize: 11, color: colors.muted },
   button: {
     flex: 1,
-    height: 58,
+    minHeight: 58,
+    paddingHorizontal: 12,
     borderRadius: 29,
     flexDirection: 'row',
     alignItems: 'center',

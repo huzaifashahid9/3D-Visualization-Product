@@ -5,15 +5,33 @@ import Svg, { Circle, Line, Polyline } from 'react-native-svg';
 import { Icon, type IconName } from '../../components/Icon';
 import { RoundButton } from '../../components/RoundButton';
 import { Avatar, Dot, Eyebrow, GlassCard, InfoCard, Pill, Screen, WhiteCard, ui } from '../../components/ui';
+import { WEBSITE_LABEL } from '../../config';
+import { CONFIRM_SECONDS, contacts, currentChannels, presetMessages } from '../../demo/data';
+import { useDemo } from '../../demo/DemoContext';
+import { useCountdown } from '../../demo/hooks';
+import { shareText } from '../../demo/share';
 import type { ScreenProps } from '../../navigation';
 import { colors, fonts } from '../../theme';
 
-function RoleHeader({ role, title, right }: { role: string; title: string; right: ReactNode }) {
+function RoleHeader({
+  role,
+  title,
+  right,
+  onBack,
+}: {
+  role: string;
+  title: string;
+  right: ReactNode;
+  onBack(): void;
+}) {
   return (
     <View style={styles.header}>
-      <View>
+      <RoundButton icon="back" label="Back" onPress={onBack} />
+      <View style={ui.flex}>
         <Text style={styles.role}>{role}</Text>
-        <Text style={styles.title}>{title}</Text>
+        <Text style={styles.title} numberOfLines={1} accessibilityRole="header">
+          {title}
+        </Text>
       </View>
       {right}
     </View>
@@ -22,64 +40,146 @@ function RoleHeader({ role, title, right }: { role: string; title: string; right
 
 /* ---------- C1 · Caregiver view (document 12.1, 12.4) ---------- */
 
-const careTiles: { icon: IconName; title: string; route?: 'log' | 'calibration' }[] = [
-  { icon: 'contacts', title: 'Contacts' },
-  { icon: 'message', title: 'Preset messages' },
-  { icon: 'target', title: 'Calibration help', route: 'calibration' },
-  { icon: 'log', title: 'Activity log', route: 'log' },
-];
+type Pending = 'waiting' | 'cancelled' | 'timedout';
 
-export function CaregiverScreen({ onNavigate }: ScreenProps) {
-  const [pending, setPending] = useState<'waiting' | 'cancelled' | 'paused'>('waiting');
+export function CaregiverScreen({ onNavigate, onBack }: ScreenProps) {
+  const demo = useDemo();
+  const { person, paused } = demo;
+  const caregiver = contacts[0];
+  const pendingText = `Send “${presetMessages[0]}” to ${caregiver.name}`;
+  const [pending, setPending] = useState<Pending>('waiting');
+  const [round, setRound] = useState(0);
+  // A live countdown on the pending action, held while IRADA is paused.
+  const left = useCountdown(
+    CONFIRM_SECONDS,
+    () => {
+      setPending('timedout');
+      demo.addLog({ icon: 'message', title: pendingText, confidence: 'High', outcome: 'Timed out' });
+    },
+    { resetKey: round, running: pending === 'waiting' && !paused },
+  );
+
+  const sensors = currentChannels(demo.sensorsFixed);
+  const problems = sensors.filter((c) => c.state !== 'good');
+  const done = demo.log.filter((e) => e.outcome === 'Done').length;
+  const notDone = demo.log.length - done;
+  const alerts = demo.log.filter((e) => e.icon === 'alert' && e.outcome === 'Done').length;
+
+  const cancelPending = () => {
+    setPending('cancelled');
+    demo.addLog({ icon: 'message', title: pendingText, confidence: 'High', outcome: 'Cancelled' });
+  };
+  const showAgain = () => {
+    setPending('waiting');
+    setRound((r) => r + 1);
+  };
+
+  const tiles: { icon: IconName; title: string; onPress(): void }[] = [
+    {
+      icon: 'contacts',
+      title: 'Contacts',
+      onPress: () =>
+        demo.setToast(`${contacts.map((c) => `${c.name} (${c.role.toLowerCase()})`).join(', ')}. Editing comes later.`),
+    },
+    {
+      icon: 'message',
+      title: 'Preset messages',
+      onPress: () => demo.setToast(`${presetMessages.length} messages are set up. Editing comes later.`),
+    },
+    { icon: 'target', title: 'Calibration help', onPress: () => onNavigate('calibration') },
+    { icon: 'log', title: 'Activity log', onPress: () => onNavigate('log') },
+  ];
+
   return (
     <Screen
       bottomInset={96}
-      header={<RoleHeader role="Caregiver view" title="Hi Ahmed" right={<RoundButton icon="bell" label="Alerts" />} />}
+      header={
+        <RoleHeader
+          role="Caregiver view"
+          title={`Hi ${caregiver.name}`}
+          onBack={onBack}
+          right={
+            <RoundButton
+              icon="bell"
+              label="Alerts"
+              onPress={() =>
+                demo.setToast(
+                  problems.length
+                    ? `${problems.length} sensors need a look: ${problems.map((c) => c.name).join(', ')}.`
+                    : 'No new alerts.',
+                )
+              }
+            />
+          }
+        />
+      }
     >
       <WhiteCard style={{ gap: 12 }}>
         <View style={ui.row}>
-          <Avatar initials="SK" />
+          <Avatar initials={person.initials} />
           <View style={ui.flex}>
-            <Text style={ui.cardTitle}>Sara</Text>
-            <Text style={ui.cardText}>{pending === 'paused' ? 'IRADA is paused' : 'Headset on · Listening'}</Text>
+            <Text style={ui.cardTitle}>{person.name}</Text>
+            <Text style={ui.cardText}>{paused ? 'IRADA is paused' : 'Headset on · Listening'}</Text>
           </View>
-          <Pill label={pending === 'paused' ? 'Paused' : 'Live'} tone={pending === 'paused' ? 'soft' : 'lime'} />
+          <Pill label={paused ? 'Paused' : 'Live'} tone={paused ? 'soft' : 'lime'} />
         </View>
         <View style={[ui.row, { gap: 6 }]}>
           {(
             [
-              ['battery', '[level]'],
-              ['bluetooth', 'Strong'],
-              ['headset', '1 weak'],
-            ] as [IconName, string][]
-          ).map(([ic, v]) => (
-            <View key={v} style={styles.status}>
+              ['battery', '[level]', 'Battery level to be decided'],
+              ['bluetooth', 'Strong', 'Bluetooth strong'],
+              [
+                'headset',
+                problems.length ? `${problems.length} to check` : 'All good',
+                problems.length ? `${problems.length} sensors to check` : 'All sensors good',
+              ],
+            ] as [IconName, string, string][]
+          ).map(([ic, v, a11y]) => (
+            <View key={ic} style={styles.status} accessible accessibilityLabel={a11y}>
               <Icon name={ic} size={14} color={colors.violet} />
-              <Text style={styles.statusText}>{v}</Text>
+              <Text style={styles.statusText} numberOfLines={1}>
+                {v}
+              </Text>
             </View>
           ))}
         </View>
       </WhiteCard>
 
-      {pending === 'waiting' ? (
+      {paused ? (
+        <GlassCard style={[ui.row, { justifyContent: 'space-between' }]}>
+          <Text style={styles.doneText}>IRADA is paused. Nothing will run on {person.name}'s phone.</Text>
+          <Pressable accessibilityRole="button" onPress={() => demo.setPaused(false)} hitSlop={10}>
+            <Text style={styles.undo}>Resume</Text>
+          </Pressable>
+        </GlassCard>
+      ) : pending === 'waiting' ? (
         <View style={styles.pending}>
           <View style={[ui.row, { justifyContent: 'space-between' }]}>
-            <Text style={styles.pendingLabel}>Waiting for Sara's yes</Text>
-            <Text style={[styles.pendingLabel, { textTransform: 'none' }]}>6 s</Text>
+            <Text style={styles.pendingLabel}>Waiting for {person.name}'s yes</Text>
+            <Text
+              style={[styles.pendingLabel, { textTransform: 'none' }]}
+              accessibilityLabel={`${left} seconds left`}
+            >
+              {left} s
+            </Text>
           </View>
-          <Text style={styles.pendingTitle}>Send “I need help” to you</Text>
+          <Text style={styles.pendingTitle}>Send “{presetMessages[0]}” to you</Text>
           <View style={[ui.row, { gap: 8 }]}>
             <Pressable
               accessibilityRole="button"
-              onPress={() => setPending('cancelled')}
-              style={[styles.pendingBtn, { backgroundColor: colors.black }]}
+              onPress={cancelPending}
+              style={({ pressed }) => [styles.pendingBtn, { backgroundColor: colors.black }, pressed && { opacity: 0.8 }]}
             >
               <Text style={[styles.pendingBtnText, { color: colors.white }]}>Cancel it</Text>
             </Pressable>
             <Pressable
               accessibilityRole="button"
-              onPress={() => setPending('paused')}
-              style={[styles.pendingBtn, { backgroundColor: 'rgba(14,11,26,0.1)' }]}
+              onPress={() => demo.setPaused(true)}
+              style={({ pressed }) => [
+                styles.pendingBtn,
+                { backgroundColor: 'rgba(14,11,26,0.1)' },
+                pressed && { opacity: 0.8 },
+              ]}
             >
               <Icon name="pause" size={16} color={colors.black} />
               <Text style={styles.pendingBtnText}>Pause IRADA</Text>
@@ -89,42 +189,50 @@ export function CaregiverScreen({ onNavigate }: ScreenProps) {
       ) : (
         <GlassCard style={[ui.row, { justifyContent: 'space-between' }]}>
           <Text style={styles.doneText}>
-            {pending === 'paused' ? 'IRADA is paused. Nothing will run.' : 'Cancelled. Nothing was sent.'}
+            {pending === 'timedout' ? 'No yes came, so it timed out. Nothing was sent.' : 'Cancelled. Nothing was sent.'}
           </Text>
-          <Pressable accessibilityRole="button" onPress={() => setPending('waiting')} hitSlop={8}>
-            <Text style={styles.undo}>{pending === 'paused' ? 'Resume' : 'Show again'}</Text>
+          <Pressable accessibilityRole="button" onPress={showAgain} hitSlop={10}>
+            <Text style={styles.undo}>Show again</Text>
           </Pressable>
         </GlassCard>
       )}
 
       <GlassCard style={[ui.row, { gap: 10 }]}>
-        <Dot color={colors.weak} size={12} />
+        <Dot color={problems.length ? colors.weak : colors.good} size={12} />
         <Text style={styles.alertText}>
-          <Text style={{ color: colors.white, fontFamily: fonts.bold }}>09:20 </Text>
-          Forehead sensor is weak. Press it gently onto the skin.
+          {problems.length ? (
+            <>
+              <Text style={{ color: colors.white, fontFamily: fonts.bold }}>09:20 </Text>
+              Forehead sensor is weak and the ear clips are loose. Press them gently onto the skin.
+            </>
+          ) : (
+            'Every sensor has good contact.'
+          )}
         </Text>
       </GlassCard>
 
-      <Eyebrow color={colors.muted}>Today · sample</Eyebrow>
+      <Eyebrow color={colors.muted}>Today, from the activity log</Eyebrow>
       <View style={[ui.row, { gap: 8 }]}>
-        {[
-          ['4', 'Done'],
-          ['2', 'Cancelled'],
-          ['0', 'Emergencies'],
-        ].map(([n, t]) => (
-          <View key={t} style={styles.stat}>
+        {(
+          [
+            [done, 'Done'],
+            [notDone, 'Not done'],
+            [alerts, alerts === 1 ? 'Alert sent' : 'Alerts sent'],
+          ] as const
+        ).map(([n, t]) => (
+          <View key={t} style={styles.stat} accessible accessibilityLabel={`${n} ${t}`}>
             <Text style={styles.statNum}>{n}</Text>
             <Text style={styles.statLabel}>{t}</Text>
           </View>
         ))}
       </View>
       <View style={styles.tiles}>
-        {careTiles.map((t) => (
+        {tiles.map((t) => (
           <Pressable
             key={t.title}
             accessibilityRole="button"
-            onPress={t.route ? () => onNavigate(t.route!) : undefined}
-            style={({ pressed }) => [styles.tile, pressed && t.route && { opacity: 0.8 }]}
+            onPress={t.onPress}
+            style={({ pressed }) => [styles.tile, pressed && { opacity: 0.8 }]}
           >
             <Icon name={t.icon} size={22} color={colors.lime} />
             <Text style={styles.tileText}>{t.title}</Text>
@@ -152,7 +260,22 @@ const perCommand = [
   { cmd: 'Rest', confirmed: 74, cancelled: 8 },
 ];
 
-export function ClinicianScreen(_: ScreenProps) {
+export function ClinicianScreen({ onBack }: ScreenProps) {
+  const { person, setToast } = useDemo();
+  const exportReport = () =>
+    shareText(
+      `IRADA progress · ${person.name}`,
+      [
+        `IRADA progress report · ${person.name}`,
+        '',
+        `Accuracy over ${sampleTrend.length} sessions: ${sampleTrend.join(', ')} %`,
+        ...perCommand.map((c) => `${c.cmd}: ${c.confirmed}% confirmed, ${c.cancelled}% cancelled`),
+        '',
+        'Sample data from the IRADA demo, not measured results.',
+        WEBSITE_LABEL,
+      ].join('\n'),
+      () => setToast('Sharing is not available here. On a phone, this opens the share sheet.'),
+    );
   const points = sampleTrend.map((v, i) => pt(i, v).join(',')).join(' ');
   const last = pt(sampleTrend.length - 1, sampleTrend[sampleTrend.length - 1]);
   return (
@@ -161,8 +284,9 @@ export function ClinicianScreen(_: ScreenProps) {
       header={
         <RoleHeader
           role="Therapist view · later"
-          title="Sara's progress"
-          right={<RoundButton icon="export" label="Export report" variant="white" />}
+          title={`${person.name}'s progress`}
+          onBack={onBack}
+          right={<RoundButton icon="export" label="Export report" variant="white" onPress={exportReport} />}
         />
       }
     >
@@ -171,7 +295,13 @@ export function ClinicianScreen(_: ScreenProps) {
           <Text style={ui.cardTitle}>Accuracy over sessions</Text>
           <Pill label="Sample data" tone="soft" />
         </View>
-        <Svg width="100%" height={H} viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none">
+        <Svg
+          width="100%"
+          height={H}
+          accessible
+          accessibilityLabel={`Sample accuracy rising from ${sampleTrend[0]}% to ${sampleTrend[sampleTrend.length - 1]}% over ${sampleTrend.length} sessions`}           viewBox={`0 0 ${W} ${H}`}
+          preserveAspectRatio="none"
+        >
           <Line x1={10} y1={H - 10} x2={W - 10} y2={H - 10} stroke={colors.cardMuted} strokeWidth={2} />
           <Line
             x1={10}
@@ -227,7 +357,12 @@ export function ClinicianScreen(_: ScreenProps) {
           </View>
         </View>
         {perCommand.map((c) => (
-          <View key={c.cmd} style={[ui.row, { gap: 8 }]}>
+          <View
+            key={c.cmd}
+            style={[ui.row, { gap: 8 }]}
+            accessible
+            accessibilityLabel={`${c.cmd}: ${c.confirmed}% confirmed, ${c.cancelled}% cancelled`}
+          >
             <Text style={styles.cmd}>{c.cmd}</Text>
             <View style={styles.stack}>
               <View style={{ width: `${c.confirmed}%`, backgroundColor: colors.violet }} />
@@ -236,18 +371,22 @@ export function ClinicianScreen(_: ScreenProps) {
           </View>
         ))}
       </WhiteCard>
-      <InfoCard icon="note" title="Note ·" text="Add a note for the rehab team…" />
+      <InfoCard
+        icon="note"
+        title="Notes for the rehab team"
+        text="come with the therapist view in a later release."
+      />
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
   header: {
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
     paddingBottom: 10,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    gap: 12,
   },
   role: { fontFamily: fonts.bold, fontSize: 12, letterSpacing: 0.8, textTransform: 'uppercase', color: colors.lime },
   title: { fontFamily: fonts.extrabold, fontSize: 24, letterSpacing: -0.5, color: colors.white },
@@ -290,7 +429,7 @@ const styles = StyleSheet.create({
   tiles: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 8 },
   tile: {
     width: '48.8%',
-    height: 84,
+    minHeight: 84,
     borderRadius: 22,
     backgroundColor: colors.glassSoft,
     borderWidth: 1,

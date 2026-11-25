@@ -33,6 +33,18 @@ export interface Contact {
   role: string;
 }
 
+/** The people who use IRADA on this phone. Each has their own trained model. */
+export interface Person {
+  initials: string;
+  name: string;
+  sub: string;
+}
+
+export const people: Person[] = [
+  { initials: 'SK', name: 'Sara', sub: 'Calibrated today' },
+  { initials: 'UM', name: 'Usman', sub: 'Calibrated 3 days ago' },
+];
+
 export const contacts: Contact[] = [
   { initials: 'AH', name: 'Ahmed', role: 'Caregiver' },
   { initials: 'AM', name: 'Ammi', role: 'Mother' },
@@ -51,7 +63,7 @@ export interface Channel {
 }
 
 /** Electrode contact as the headset check first finds it: one weak, one poor. */
-export const channels: Channel[] = [
+export const channels: readonly Channel[] = [
   { name: 'C3', where: 'Left motor area', state: 'good' },
   { name: 'Cz', where: 'Top of head', state: 'good' },
   { name: 'C4', where: 'Right motor area', state: 'good' },
@@ -96,3 +108,15 @@ export const sampleLog: LogEntry[] = [
 
 /** How long the confirmation screen waits before cancelling by itself. */
 export const CONFIRM_SECONDS = 10;
+
+/** The sensors as they read now: all good once the headset check has been run again. */
+export function currentChannels(sensorsFixed: boolean): Channel[] {
+  return channels.map((c) => (sensorsFixed ? { ...c, state: 'good' } : { ...c }));
+}
+
+/** What did not happen, in words that fit the action. Used in the cancel and time-out messages. */
+export function nothingHappened(action: ActionId): string {
+  if (action === 'call') return 'No call was made.';
+  if (action === 'emergency') return 'No alert was sent.';
+  return 'Nothing was sent.';
+}

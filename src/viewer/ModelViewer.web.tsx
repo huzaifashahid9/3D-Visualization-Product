@@ -1,5 +1,5 @@
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
-import { Image, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
+import { Image, Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 
 import { MODEL_URL, images } from '../config';
 import { parts } from '../data/parts';
@@ -12,7 +12,11 @@ export interface ModelViewerHandle {
   zoomIn(): void;
   zoomOut(): void;
   reset(): void;
+  focus(index: number): void;
 }
+
+const LOAD_TIMEOUT_MS = 30000;
+const LOAD_ERROR = 'The 3D model could not be shown.';
 
 interface Props {
   selected: number;
@@ -28,6 +32,7 @@ interface ViewerApi {
   setAutoRotate(on: boolean): void;
   zoom(factor: number): void;
   reset(): void;
+  focus(i: number): void;
 }
 
 /**
@@ -41,6 +46,17 @@ export const ModelViewer = forwardRef<ModelViewerHandle, Props>(function ModelVi
   const frame = useRef<HTMLIFrameElement>(null);
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [attempt, setAttempt] = useState(0);
+  const reload = () => {
+    setLoaded(false);
+    setError(null);
+    setAttempt((n) => n + 1);
+  };
+  useEffect(() => {
+    if (loaded || error) return;
+    const t = setTimeout(() => setError(LOAD_ERROR), LOAD_TIMEOUT_MS);
+    return () => clearTimeout(t);
+  }, [loaded, error, attempt]);
   const onSelectRef = useRef(onSelect);
   onSelectRef.current = onSelect;
 
@@ -56,15 +72,21 @@ export const ModelViewer = forwardRef<ModelViewerHandle, Props>(function ModelVi
     zoomIn: () => api()?.zoom(0.8),
     zoomOut: () => api()?.zoom(1.25),
     reset: () => api()?.reset(),
+    focus: (i: number) => api()?.focus(i),
   }));
 
   useEffect(() => {
     const onMessage = (event: MessageEvent) => {
       if (event.source !== frame.current?.contentWindow || typeof event.data?.irada !== 'string') return;
-      const msg = JSON.parse(event.data.irada) as { type: string; index?: number; message?: string };
+      let msg: { type: string; index?: number; message?: string };
+      try {
+        msg = JSON.parse(event.data.irada);
+      } catch {
+        return;
+      }
       if (msg.type === 'loaded') setLoaded(true);
       if (msg.type === 'select' && typeof msg.index === 'number') onSelectRef.current(msg.index);
-      if (msg.type === 'error') setError(msg.message ?? 'Could not load the 3D model');
+      if (msg.type === 'error') setError(LOAD_ERROR);
     };
     window.addEventListener('message', onMessage);
     return () => window.removeEventListener('message', onMessage);
@@ -83,16 +105,26 @@ export const ModelViewer = forwardRef<ModelViewerHandle, Props>(function ModelVi
   return (
     <View style={[styles.root, style]}>
       <iframe
+        key={attempt}
         ref={frame}
         srcDoc={html}
         title="3D model of the headset"
         style={{ border: 0, width: '100%', height: '100%', background: 'transparent', display: 'block' }}
         allow="xr-spatial-tracking"
       />
-      {!loaded && (
-        <View pointerEvents="none" style={[StyleSheet.absoluteFill, styles.poster]}>
+      {(!loaded || error) && (
+        <View pointerEvents={error ? 'box-none' : 'none'} style={[StyleSheet.absoluteFill, styles.poster]}>
           <Image source={images.viewerPoster} style={styles.posterImage} resizeMode="contain" />
-          <Text style={styles.status}>{error ?? 'Loading 3D model…'}</Text>
+          {error ? (
+            <View style={styles.errorBox}>
+              <Text style={styles.errorText}>{error}</Text>
+              <Pressable accessibilityRole="button" onPress={reload} style={styles.retry}>
+                <Text style={styles.retryText}>Try again</Text>
+              </Pressable>
+            </View>
+          ) : (
+            <Text style={styles.status}>Loading 3D model…</Text>
+          )}
         </View>
       )}
     </View>
@@ -104,4 +136,15 @@ const styles = StyleSheet.create({
   poster: { alignItems: 'center', justifyContent: 'center' },
   posterImage: { width: '100%', height: '100%' },
   status: { position: 'absolute', bottom: 64, color: colors.white, fontFamily: fonts.semibold, fontSize: 13 },
+  errorBox: { position: 'absolute', bottom: 56, alignItems: 'center', gap: 10, paddingHorizontal: 24 },
+  errorText: { color: colors.white, fontFamily: fonts.semibold, fontSize: 13, textAlign: 'center' },
+  retry: {
+    minHeight: 44,
+    paddingHorizontal: 20,
+    borderRadius: 22,
+    backgroundColor: colors.white,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  retryText: { color: colors.black, fontFamily: fonts.bold, fontSize: 14 },
 });

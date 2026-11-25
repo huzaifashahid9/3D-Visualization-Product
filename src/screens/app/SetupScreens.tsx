@@ -3,6 +3,7 @@ import { Animated, Easing, Image, Pressable, StyleSheet, Text, View } from 'reac
 import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Circle } from 'react-native-svg';
 
+import { Brand } from '../../components/Brand';
 import { Icon } from '../../components/Icon';
 import {
   Avatar,
@@ -17,22 +18,19 @@ import {
   Pill,
   Screen,
   SuccessMark,
+  TextLink,
   TopBar,
   WhiteCard,
   ui,
 } from '../../components/ui';
 import { images } from '../../config';
-import { channels, commands, contactColor, contactLabel, type Channel } from '../../demo/data';
+import { commands, contactColor, contactLabel, currentChannels, people, type Channel } from '../../demo/data';
 import { useDemo } from '../../demo/DemoContext';
+import { useOnBackground } from '../../demo/hooks';
 import type { ScreenProps } from '../../navigation';
 import { colors, fonts, gradients, radius } from '../../theme';
 
 /* ---------- A1 · Welcome and profile (document 12.3 #1, 12.6) ---------- */
-
-const people = [
-  { initials: 'SK', name: 'Sara', sub: 'Calibrated today' },
-  { initials: 'UM', name: 'Usman', sub: 'Calibrated 3 days ago' },
-];
 
 function Toggle({ on, onPress, label }: { on: boolean; onPress(): void; label: string }) {
   return (
@@ -55,21 +53,15 @@ function Toggle({ on, onPress, label }: { on: boolean; onPress(): void; label: s
 }
 
 export function WelcomeScreen({ onNavigate }: ScreenProps) {
-  const [person, setPerson] = useState(0);
-  const [urdu, setUrdu] = useState(false);
-  const [caregiver, setCaregiver] = useState(true);
+  const demo = useDemo();
+  const { personIndex: person, urdu, caregiverHere: caregiver } = demo;
   return (
     <Screen
       background="bright"
       bottomInset={96}
       header={
         <View style={styles.brandBar}>
-          <View style={ui.row}>
-            <View style={styles.logo}>
-              <Icon name="logo" size={22} color={colors.black} strokeWidth={2.4} />
-            </View>
-            <Text style={styles.brand}>irada</Text>
-          </View>
+          <Brand height={18} />
           <View style={styles.segment} accessibilityRole="tablist">
             {['English', 'اردو'].map((l, i) => {
               const on = (i === 1) === urdu;
@@ -77,8 +69,9 @@ export function WelcomeScreen({ onNavigate }: ScreenProps) {
                 <Pressable
                   key={l}
                   accessibilityRole="tab"
+                  accessibilityLabel={i === 1 ? 'Urdu' : 'English'}
                   accessibilityState={{ selected: on }}
-                  onPress={() => setUrdu(i === 1)}
+                  onPress={() => demo.setUrdu(i === 1)}
                   style={[styles.segItem, on && { backgroundColor: colors.white }]}
                 >
                   <Text
@@ -93,6 +86,13 @@ export function WelcomeScreen({ onNavigate }: ScreenProps) {
         </View>
       }
     >
+      {urdu && (
+        <InfoCard
+          icon="globe"
+          title="اردو"
+          text="Urdu screens come with the first release. This demo stays in English for now."
+        />
+      )}
       <Heading style={{ marginTop: 8 }}>{'Who is using\nIRADA today?'}</Heading>
       <Body>Pick a profile. Each person has their own trained model.</Body>
       <WhiteCard style={{ padding: 10, gap: 8 }}>
@@ -102,8 +102,9 @@ export function WelcomeScreen({ onNavigate }: ScreenProps) {
             <Pressable
               key={p.name}
               accessibilityRole="radio"
+              accessibilityLabel={`${p.name}, ${p.sub}`}
               accessibilityState={{ checked: on }}
-              onPress={() => setPerson(i)}
+              onPress={() => demo.setPersonIndex(i)}
               style={[styles.person, { backgroundColor: on ? colors.lime : colors.cardMuted }]}
             >
               <Avatar initials={p.initials} on={on} />
@@ -115,10 +116,14 @@ export function WelcomeScreen({ onNavigate }: ScreenProps) {
             </Pressable>
           );
         })}
-        <View style={styles.addPerson}>
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => demo.setToast('A new person is added with a caregiver, then calibrated. Not part of this demo.')}
+          style={({ pressed }) => [styles.addPerson, pressed && { opacity: 0.6 }]}
+        >
           <Icon name="plus" size={18} color={colors.violet} />
           <Text style={styles.addText}>Add a person</Text>
-        </View>
+        </Pressable>
       </WhiteCard>
       <GlassCard style={styles.optionRow}>
         <Disc icon="user" bg={colors.glass} fg={colors.white} size={40} />
@@ -126,7 +131,7 @@ export function WelcomeScreen({ onNavigate }: ScreenProps) {
           <Text style={styles.optionTitle}>A caregiver is here</Text>
           <Text style={styles.optionSub}>They can help set up and cancel at any time</Text>
         </View>
-        <Toggle on={caregiver} onPress={() => setCaregiver((v) => !v)} label="A caregiver is here" />
+        <Toggle on={caregiver} onPress={() => demo.setCaregiverHere(!caregiver)} label="A caregiver is here" />
       </GlassCard>
       <GlassCard style={styles.optionRow}>
         <Disc icon="shield" bg={colors.glass} fg={colors.lime} size={40} />
@@ -137,15 +142,9 @@ export function WelcomeScreen({ onNavigate }: ScreenProps) {
       </GlassCard>
       <BigButton label="Continue" icon="check" onPress={() => onNavigate('headset')} />
       <View style={styles.links}>
-        <Pressable accessibilityRole="button" onPress={() => onNavigate('home')} hitSlop={6} style={styles.link}>
-          <Text style={styles.linkText}>Skip to the menu</Text>
-        </Pressable>
-        <Pressable accessibilityRole="button" onPress={() => onNavigate('caregiver')} hitSlop={6} style={styles.link}>
-          <Text style={styles.linkText}>Caregiver view</Text>
-        </Pressable>
-        <Pressable accessibilityRole="button" onPress={() => onNavigate('clinician')} hitSlop={6} style={styles.link}>
-          <Text style={styles.linkText}>Therapist view</Text>
-        </Pressable>
+        <TextLink label="Skip to the menu" onPress={() => onNavigate('home')} />
+        <TextLink label="Caregiver view" onPress={() => onNavigate('caregiver')} />
+        <TextLink label="Therapist view" onPress={() => onNavigate('clinician')} />
       </View>
       <Disclaimer />
     </Screen>
@@ -173,19 +172,21 @@ function ChannelRow({ channel, first }: { channel: Channel; first: boolean }) {
   );
 }
 
-export function HeadsetScreen({ onNavigate }: ScreenProps) {
+export function HeadsetScreen({ onNavigate, onBack }: ScreenProps) {
   const { sensorsFixed, setSensorsFixed } = useDemo();
-  const [list, setList] = useState<Channel[]>(() =>
-    sensorsFixed ? channels.map((c) => ({ ...c, state: 'good' as const })) : channels,
-  );
+  const list = currentChannels(sensorsFixed);
   const [checking, setChecking] = useState(false);
   const problems = list.filter((c) => c.state !== 'good').length;
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => {
+    if (timer.current) clearTimeout(timer.current);
+  }, []);
 
   // "Check again" simulates the wearer fixing the contact: everything turns good.
   const checkAgain = () => {
+    if (checking) return;
     setChecking(true);
-    setTimeout(() => {
-      setList((l) => l.map((c) => ({ ...c, state: 'good' })));
+    timer.current = setTimeout(() => {
       setSensorsFixed(true);
       setChecking(false);
     }, 1200);
@@ -193,7 +194,7 @@ export function HeadsetScreen({ onNavigate }: ScreenProps) {
 
   return (
     <Screen
-      header={<TopBar title="Headset check" onBack={() => onNavigate('welcome')} />}
+      header={<TopBar title="Headset check" onBack={onBack} />}
       footer={
         problems > 0 ? (
           <>
@@ -204,11 +205,12 @@ export function HeadsetScreen({ onNavigate }: ScreenProps) {
               onPress={checkAgain}
               disabled={checking}
             />
+            {/* Calibrating with poor contact would train a poor model, so it waits for good contact. */}
             <BigButton
               label={`Fix ${problems} sensor${problems > 1 ? 's' : ''} to start calibration`}
               tone="glass"
               compact
-              onPress={() => onNavigate('calibration')}
+              disabled
             />
           </>
         ) : (
@@ -269,10 +271,13 @@ const PHASES = [
 const TRIALS = 25;
 const RING = 2 * Math.PI * 64;
 
-export function CalibrationScreen({ onNavigate }: ScreenProps) {
+export function CalibrationScreen({ onNavigate, onBack }: ScreenProps) {
+  const { sensorsFixed } = useDemo();
   const [cal, setCal] = useState({ phase: 0, left: PHASES[0].seconds, trial: 21 });
   const [paused, setPaused] = useState(false);
   const { phase, left, trial } = cal;
+  // Calibration needs the user's attention, so it pauses if they leave the app.
+  useOnBackground(() => setPaused(true));
 
   // Count down each phase (ready, imagine, rest); after rest the next trial starts.
   useEffect(() => {
@@ -288,9 +293,10 @@ export function CalibrationScreen({ onNavigate }: ScreenProps) {
   }, [paused]);
 
   // The last trial of this command finishes calibration.
+  const finished = trial > TRIALS;
   useEffect(() => {
-    if (trial > TRIALS) onNavigate('calResult');
-  }, [trial, onNavigate]);
+    if (finished) onNavigate('calResult', { replace: true });
+  }, [finished, onNavigate]);
 
   const p = PHASES[phase];
   const shown = left;
@@ -299,7 +305,7 @@ export function CalibrationScreen({ onNavigate }: ScreenProps) {
   return (
     <Screen
       header={
-        <TopBar title="Calibration" onBack={() => onNavigate('headset')} right={<Pill label="2 of 4" tone="glass" />} />
+        <TopBar title="Calibration" onBack={onBack} right={<Pill label="2 of 4" tone="glass" />} />
       }
       footer={
         <>
@@ -309,12 +315,17 @@ export function CalibrationScreen({ onNavigate }: ScreenProps) {
             icon={paused ? 'play' : 'pause'}
             onPress={() => setPaused((v) => !v)}
           />
-          <Pressable accessibilityRole="button" onPress={() => onNavigate('calResult')} hitSlop={6} style={styles.skip}>
-            <Text style={styles.linkText}>Skip to the result</Text>
-          </Pressable>
+          <TextLink label="Skip to the result" onPress={() => onNavigate('calResult', { replace: true })} />
         </>
       }
     >
+      {!sensorsFixed && (
+        <InfoCard
+          icon="alert"
+          iconColor={colors.weak}
+          text="Two sensors had weak contact at the last check. Results may be less accurate."
+        />
+      )}
       <View style={[ui.row, { gap: 6 }]}>
         {commands.map((c, i) => {
           const done = i === 0;
@@ -322,13 +333,19 @@ export function CalibrationScreen({ onNavigate }: ScreenProps) {
           return (
             <View
               key={c}
+              accessible
+              accessibilityLabel={`${c}, ${done ? 'done' : now ? 'practising now' : 'next'}`}
               style={[
                 styles.cmdChip,
                 { backgroundColor: now ? colors.lime : done ? 'rgba(212,255,58,0.18)' : colors.glassSoft },
               ]}
             >
               {done && <Icon name="check" size={13} color={colors.lime} strokeWidth={3} />}
-              <Text style={[styles.cmdText, { color: now ? colors.black : done ? colors.lime : colors.lavender }]}>
+              <Text
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                style={[styles.cmdText, { color: now ? colors.black : done ? colors.lime : colors.lavender }]}
+              >
                 {c}
               </Text>
             </View>
@@ -339,7 +356,12 @@ export function CalibrationScreen({ onNavigate }: ScreenProps) {
         <View style={[styles.phaseTag, { backgroundColor: imagine ? colors.lime : 'rgba(14,11,26,0.35)' }]}>
           <Text style={[styles.phaseText, { color: imagine ? colors.black : colors.white }]}>{p.label}</Text>
         </View>
-        <View style={styles.ring}>
+        <View
+          style={styles.ring}
+          accessible
+          accessibilityRole="timer"
+          accessibilityLabel={`${p.label}, ${shown} seconds`}
+        >
           <Svg width={150} height={150} style={{ transform: [{ rotate: '-90deg' }] }}>
             <Circle cx={75} cy={75} r={64} stroke="rgba(255,255,255,0.2)" strokeWidth={12} fill="none" />
             <Circle
@@ -354,7 +376,9 @@ export function CalibrationScreen({ onNavigate }: ScreenProps) {
               strokeDashoffset={RING * (1 - shown / p.seconds)}
             />
           </Svg>
-          <Text style={styles.ringNum}>{shown}</Text>
+          <Text style={styles.ringNum} maxFontSizeMultiplier={1.2}>
+            {shown}
+          </Text>
         </View>
         <Text style={styles.instruction}>{p.instruction}</Text>
         <Text style={styles.hint}>{paused ? 'Paused' : p.hint}</Text>
@@ -387,7 +411,8 @@ const sampleBars = [
   { cmd: 'Rest', width: 81 },
 ];
 
-export function CalResultScreen({ onNavigate }: ScreenProps) {
+export function CalResultScreen({ onNavigate, onBack }: ScreenProps) {
+  const { person } = useDemo();
   const grow = useRef(new Animated.Value(0)).current;
   useEffect(() => {
     Animated.timing(grow, {
@@ -401,15 +426,15 @@ export function CalResultScreen({ onNavigate }: ScreenProps) {
   return (
     <Screen
       background="bright"
-      header={<TopBar title="Calibration done" onBack={() => onNavigate('calibration')} />}
+      header={<TopBar title="Calibration done" onBack={onBack} />}
       footer={<BigButton label="Go to the menu" icon="check" onPress={() => onNavigate('home')} />}
     >
       <SuccessMark />
       <Heading size={30} style={{ textAlign: 'center' }}>
-        Sara's model is ready
+        {person.name}'s model is ready
       </Heading>
       <Body style={{ textAlign: 'center' }}>
-        Accuracy is measured for Sara, for each command. It is a result, not a promise.
+        Accuracy is measured for {person.name}, for each command. It is a result, not a promise.
       </Body>
       <WhiteCard style={{ gap: 14 }}>
         <View style={[ui.row, { justifyContent: 'space-between' }]}>
@@ -438,7 +463,7 @@ export function CalResultScreen({ onNavigate }: ScreenProps) {
       <GlassCard style={[ui.row, { gap: 10 }]}>
         <Dot color={colors.weak} size={12} />
         <Text style={styles.optionSub}>
-          Feet is weak for Sara, so it is left off her menu for now. Calibration took 8 minutes.
+          Feet is weak for {person.name}, so it is left off the menu for now. Calibration took 8 minutes.
         </Text>
       </GlassCard>
     </Screen>
@@ -453,15 +478,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  logo: {
-    width: 36,
-    height: 36,
-    borderRadius: 12,
-    backgroundColor: colors.lime,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  brand: { fontFamily: fonts.extrabold, fontSize: 20, letterSpacing: -0.4, color: colors.white },
   segment: { flexDirection: 'row', padding: 4, gap: 4, borderRadius: radius.pill, backgroundColor: colors.glass },
   segItem: { height: 36, paddingHorizontal: 14, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
   segText: { fontFamily: fonts.bold },
@@ -476,9 +492,6 @@ const styles = StyleSheet.create({
   toggle: { width: 50, height: 30, borderRadius: 15 },
   toggleKnob: { position: 'absolute', top: 3, width: 24, height: 24, borderRadius: 12 },
   links: { flexDirection: 'row', justifyContent: 'center', flexWrap: 'wrap', columnGap: 18 },
-  link: { height: 44, justifyContent: 'center' },
-  linkText: { fontFamily: fonts.semibold, fontSize: 14, color: colors.lavender, textDecorationLine: 'underline' },
-  skip: { alignSelf: 'center', height: 40, justifyContent: 'center' },
   headsetHero: { height: 220, alignItems: 'center', justifyContent: 'center' },
   headsetGlow: {
     position: 'absolute',
@@ -498,6 +511,7 @@ const styles = StyleSheet.create({
   cmdChip: {
     flex: 1,
     height: 40,
+    paddingHorizontal: 6,
     borderRadius: 20,
     flexDirection: 'row',
     alignItems: 'center',

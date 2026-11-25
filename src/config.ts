@@ -7,6 +7,11 @@ import type { ImageSourcePropType } from 'react-native';
 /** Product name shown in the app. IRADA is Urdu for intention or will. */
 export const PRODUCT_NAME = 'irada';
 
+/** The IRADA landing page. Opened from the intro screen and Settings, and added to exports. */
+export const WEBSITE_URL = 'https://irada.live';
+/** The same address as people read it, without https://. */
+export const WEBSITE_LABEL = 'irada.live';
+
 /**
  * Intro film. Leave as null to show the floating 3D headset render instead.
  * To use a video: put it at assets/video/intro.mp4 and change this line to
@@ -38,3 +43,16 @@ export const images: Record<string, ImageSourcePropType> = {
   stepConfirm: require('../assets/images/step-confirm.png'),
   stepAct: require('../assets/images/step-act.png'),
 };
+
+/**
+ * The IRADA logo (white and lime, for dark backgrounds). irada-logo-transparent.* is the original
+ * artwork; the three below are cut from it at app sizes: the round mark, the IRADA wordmark, and
+ * the full logo with "by Hexabytes".
+ */
+export const logos = {
+  mark: require('./assets/logos/irada-mark.png') as ImageSourcePropType,
+  wordmark: require('./assets/logos/irada-wordmark.png') as ImageSourcePropType,
+  full: require('./assets/logos/irada-logo.png') as ImageSourcePropType,
+};
+/** Width divided by height of each logo image, so they are never stretched. */
+export const logoRatio = { wordmark: 720 / 167, full: 900 / 672 };

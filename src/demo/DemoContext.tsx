@@ -1,12 +1,37 @@
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react';
 
-import { actions, contacts, presetMessages, sampleLog, type ActionId, type LogEntry, type Outcome } from './data';
+import {
+  actions,
+  contacts,
+  people,
+  presetMessages,
+  sampleLog,
+  type ActionId,
+  type LogEntry,
+  type Outcome,
+  type Person,
+} from './data';
 
 /**
- * State for the simulated IRADA app: what the user picked, and the activity log.
- * Every action ends in the log, as the document requires.
+ * State for the simulated IRADA app: who is using it, what they picked, the safety settings,
+ * and the activity log. Every action ends in the log, as the document requires.
  */
 interface DemoState {
+  /** The profile chosen on the welcome screen. */
+  person: Person;
+  personIndex: number;
+  setPersonIndex(i: number): void;
+  urdu: boolean;
+  setUrdu(v: boolean): void;
+  /** Whether a caregiver is with the user. Only then can the caregiver confirm an emergency. */
+  caregiverHere: boolean;
+  setCaregiverHere(v: boolean): void;
+  voicePrompts: boolean;
+  setVoicePrompts(v: boolean): void;
+  /** Paused by the caregiver: nothing can be started until they resume. */
+  paused: boolean;
+  setPaused(v: boolean): void;
+
   action: ActionId;
   contact: number;
   message: number;
@@ -18,8 +43,14 @@ interface DemoState {
   start(action: ActionId): void;
   setContact(i: number): void;
   setMessage(i: number): void;
-  /** Records how the current action ended. */
-  finish(outcome: Outcome): void;
+  /**
+   * Records how the current action ended. Pass a title when the action ended before it was
+   * complete, such as a message cancelled before anyone was chosen.
+   */
+  finish(outcome: Outcome, title?: string): void;
+  addLog(entry: Omit<LogEntry, 'time'>): void;
+  /** Deletes the activity log and resets the headset check, like "Delete my data". */
+  clearData(): void;
   setToast(text: string | null): void;
   /** Short description of the current action, such as Send “I need help” to Ahmed. */
   summary(): string;
@@ -34,6 +65,11 @@ export function now() {
 }
 
 export function DemoProvider({ children }: { children: ReactNode }) {
+  const [personIndex, setPersonIndex] = useState(0);
+  const [urdu, setUrdu] = useState(false);
+  const [caregiverHere, setCaregiverHere] = useState(true);
+  const [voicePrompts, setVoicePrompts] = useState(true);
+  const [paused, setPaused] = useState(false);
   const [action, setAction] = useState<ActionId>('message');
   const [contact, setContact] = useState(0);
   const [message, setMessage] = useState(0);
@@ -48,13 +84,18 @@ export function DemoProvider({ children }: { children: ReactNode }) {
     return 'Emergency alert';
   }, [action, contact, message]);
 
+  const addLog = useCallback((entry: Omit<LogEntry, 'time'>) => {
+    setLog((l) => [{ ...entry, time: now() }, ...l]);
+  }, []);
+
   const finish = useCallback(
-    (outcome: Outcome) => {
+    (outcome: Outcome, title?: string) => {
       const icon = actions.find((a) => a.id === action)?.icon ?? 'message';
-      const title = outcome === 'Done' && action === 'message' ? summary().replace('Send', 'Sent') : summary();
-      setLog((l) => [{ time: now(), icon, title, confidence: 'High', outcome }, ...l]);
+      const text =
+        title ?? (outcome === 'Done' && action === 'message' ? summary().replace(/^Send/, 'Sent') : summary());
+      addLog({ icon, title: text, confidence: 'High', outcome });
     },
-    [action, summary],
+    [action, summary, addLog],
   );
 
   const start = useCallback((next: ActionId) => {
@@ -64,8 +105,24 @@ export function DemoProvider({ children }: { children: ReactNode }) {
     setToast(null);
   }, []);
 
+  const clearData = useCallback(() => {
+    setLog([]);
+    setSensorsFixed(false);
+  }, []);
+
   const value = useMemo(
     () => ({
+      person: people[personIndex],
+      personIndex,
+      setPersonIndex,
+      urdu,
+      setUrdu,
+      caregiverHere,
+      setCaregiverHere,
+      voicePrompts,
+      setVoicePrompts,
+      paused,
+      setPaused,
       action,
       contact,
       message,
@@ -77,10 +134,29 @@ export function DemoProvider({ children }: { children: ReactNode }) {
       setContact,
       setMessage,
       finish,
+      addLog,
+      clearData,
       setToast,
       summary,
     }),
-    [action, contact, message, log, toast, sensorsFixed, start, finish, summary],
+    [
+      personIndex,
+      urdu,
+      caregiverHere,
+      voicePrompts,
+      paused,
+      action,
+      contact,
+      message,
+      log,
+      toast,
+      sensorsFixed,
+      start,
+      finish,
+      addLog,
+      clearData,
+      summary,
+    ],
   );
   return <DemoContext.Provider value={value}>{children}</DemoContext.Provider>;
 }

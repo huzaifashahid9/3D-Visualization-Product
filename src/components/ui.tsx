@@ -46,15 +46,22 @@ export function Screen({ background = 'deep', header, footer, bottomInset = 0, c
   const bg = backgrounds[background];
   return (
     <LinearGradient colors={bg.colors} locations={bg.locations} style={styles.root}>
-      <View style={{ paddingTop: insets.top + 6 }}>{header}</View>
+      <View style={[styles.column, { paddingTop: insets.top + 6 }]}>{header}</View>
       <ScrollView
         style={styles.root}
-        contentContainerStyle={[styles.body, { paddingBottom: (footer ? 16 : insets.bottom + 24) + bottomInset }]}
+        contentContainerStyle={[
+          styles.body,
+          styles.column,
+          { paddingBottom: (footer ? 16 : insets.bottom + 24) + bottomInset },
+        ]}
+        keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
         {children}
       </ScrollView>
-      {footer && <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 12) + 8 }]}>{footer}</View>}
+      {footer && (
+        <View style={[styles.footer, styles.column, { paddingBottom: Math.max(insets.bottom, 12) + 8 }]}>{footer}</View>
+      )}
     </LinearGradient>
   );
 }
@@ -64,7 +71,7 @@ export function TopBar({ title, onBack, right }: { title: string; onBack(): void
   return (
     <View style={styles.topBar}>
       <RoundButton icon="back" label="Back" onPress={onBack} />
-      <Text style={styles.topTitle} numberOfLines={1}>
+      <Text style={styles.topTitle} numberOfLines={1} accessibilityRole="header">
         {title}
       </Text>
       {right ?? <View style={{ width: 48 }} />}
@@ -113,14 +120,34 @@ export function BigButton({ label, onPress, tone = 'lime', icon, disabled, compa
       onPress={onPress}
       style={({ pressed }) => [
         styles.bigButton,
-        { backgroundColor: bg, height: compact ? 52 : 62 },
+        { backgroundColor: bg, minHeight: compact ? 52 : 62 },
         tone === 'glass' && styles.glassBorder,
         disabled && { opacity: 0.45 },
         pressed && styles.pressed,
       ]}
     >
       {icon && <Icon name={icon} size={20} color={fg} strokeWidth={2.5} />}
-      <Text style={[styles.bigButtonText, { color: fg, fontSize: compact ? 15 : 18 }]}>{label}</Text>
+      <Text
+        style={[styles.bigButtonText, { color: fg, fontSize: compact ? 15 : 18 }]}
+        numberOfLines={2}
+        maxFontSizeMultiplier={1.5}
+      >
+        {label}
+      </Text>
+    </Pressable>
+  );
+}
+
+/** An underlined text button, at least 44 points tall. */
+export function TextLink({ label, onPress }: { label: string; onPress(): void }) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      onPress={onPress}
+      hitSlop={6}
+      style={({ pressed }) => [styles.link, pressed && { opacity: 0.6 }]}
+    >
+      <Text style={styles.linkText}>{label}</Text>
     </Pressable>
   );
 }
@@ -166,7 +193,11 @@ export function Heading({
   style?: StyleProp<TextStyle>;
 }) {
   return (
-    <Text accessibilityRole="header" style={[styles.heading, { fontSize: size, lineHeight: size * 1.08 }, style]}>
+    <Text
+      accessibilityRole="header"
+      maxFontSizeMultiplier={1.4}
+      style={[styles.heading, { fontSize: size, lineHeight: size * 1.08 }, style]}
+    >
       {children}
     </Text>
   );
@@ -250,6 +281,8 @@ export const ui = StyleSheet.create({
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
+  /** Keeps content a comfortable width on tablets. */
+  column: { width: '100%', maxWidth: 640, alignSelf: 'center' },
   body: { paddingHorizontal: 16, paddingTop: 8, gap: 12 },
   footer: { paddingHorizontal: 20, paddingTop: 8, gap: 10 },
   topBar: {
@@ -279,8 +312,8 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
   },
   pillText: { fontFamily: fonts.bold, fontSize: 12 },
-  bigButton: { borderRadius: 31, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
-  bigButtonText: { fontFamily: fonts.extrabold },
+  bigButton: { borderRadius: 31, paddingHorizontal: 18, paddingVertical: 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
+  bigButtonText: { fontFamily: fonts.extrabold, flexShrink: 1, textAlign: 'center' },
   glassBorder: { borderWidth: 1, borderColor: 'rgba(255,255,255,0.18)' },
   pressed: { opacity: 0.85, transform: [{ scale: 0.98 }] },
   whiteCard: { backgroundColor: colors.white, borderRadius: 28, padding: 16 },
@@ -316,5 +349,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  link: { minHeight: 44, justifyContent: 'center', alignSelf: 'center' },
+  linkText: { fontFamily: fonts.semibold, fontSize: 14, color: colors.lavender, textDecorationLine: 'underline' },
   disclaimer: { textAlign: 'center', fontFamily: fonts.semibold, fontSize: 11, color: colors.muted },
 });

@@ -4,7 +4,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { FloatingNav } from '../components/FloatingNav';
-import type { Route } from '../navigation';
+import { useReduceMotion } from '../demo/hooks';
+import type { ScreenProps } from '../navigation';
 import { RoundButton } from '../components/RoundButton';
 import { steps, type Step } from '../data/steps';
 import { colors, fonts, gradients, radius } from '../theme';
@@ -16,12 +17,14 @@ function StepCard({
   index,
   active,
   wide,
+  still,
   onPress,
 }: {
   step: Step;
   index: number;
   active: boolean;
   wide: boolean;
+  still: boolean;
   onPress(): void;
 }) {
   const lift = useRef(new Animated.Value(active ? 1 : 0)).current;
@@ -33,6 +36,10 @@ function StepCard({
 
   // Each 3D icon bobs gently, out of phase with its neighbours.
   useEffect(() => {
+    if (still) {
+      bob.setValue(0.5);
+      return;
+    }
     const loop = Animated.loop(
       Animated.sequence([
         Animated.timing(bob, { toValue: 1, duration: 1800, delay: index * 220, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
@@ -41,7 +48,7 @@ function StepCard({
     );
     loop.start();
     return () => loop.stop();
-  }, [bob, index]);
+  }, [bob, index, still]);
 
   return (
     <Animated.View
@@ -87,10 +94,13 @@ function StepCard({
   );
 }
 
-export function HowItWorksScreen({ onNavigate }: { onNavigate(route: Route): void }) {
+export function HowItWorksScreen({ onNavigate }: ScreenProps) {
   const insets = useSafeAreaInsets();
+  const reduceMotion = useReduceMotion();
   const [active, setActive] = useState(0);
-  const [paused, setPaused] = useState(false);
+  const [userPaused, setPaused] = useState<boolean | null>(null);
+  // Starts paused when the phone asks for reduced motion; the play button still works.
+  const paused = userPaused ?? reduceMotion;
 
   useEffect(() => {
     if (paused) return;
@@ -109,10 +119,10 @@ export function HowItWorksScreen({ onNavigate }: { onNavigate(route: Route): voi
           <RoundButton
             icon={paused ? 'play' : 'pause'}
             label={paused ? 'Play animation' : 'Pause animation'}
-            onPress={() => setPaused((p) => !p)}
+            onPress={() => setPaused(!paused)}
           />
         </View>
-        <Text style={styles.heading} accessibilityRole="header">
+        <Text style={styles.heading} accessibilityRole="header" maxFontSizeMultiplier={1.4}>
           From intention{'\n'}to action
         </Text>
         <Text style={styles.sub}>Five steps, and nothing runs until you say yes.</Text>
@@ -125,6 +135,7 @@ export function HowItWorksScreen({ onNavigate }: { onNavigate(route: Route): voi
               index={i}
               active={i === active}
               wide={i === steps.length - 1 && steps.length % 2 === 1}
+              still={reduceMotion}
               onPress={() => {
                 setActive(i);
                 setPaused(true);
@@ -140,7 +151,7 @@ export function HowItWorksScreen({ onNavigate }: { onNavigate(route: Route): voi
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
-  content: { paddingHorizontal: 16 },
+  content: { paddingHorizontal: 16, width: '100%', maxWidth: 640, alignSelf: 'center' },
   headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 4 },
   eyebrow: {
     overflow: 'hidden',

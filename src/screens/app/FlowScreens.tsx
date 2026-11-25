@@ -26,14 +26,16 @@ import {
 import {
   CONFIRM_SECONDS,
   actions,
-  channels,
   contactColor,
   contacts,
+  currentChannels,
+  nothingHappened,
   presetMessages,
   type ActionId,
 } from '../../demo/data';
 import { now, useDemo } from '../../demo/DemoContext';
-import type { ScreenProps } from '../../navigation';
+import { useArmed, useCountdown, useOnBackground, useReduceMotion, useSettleOnce } from '../../demo/hooks';
+import { useBackOverride, type ScreenProps } from '../../navigation';
 import { colors, fonts } from '../../theme';
 
 /* ---------- Shared: the countdown that cancels by itself ---------- */
@@ -42,7 +44,12 @@ const RING = 2 * Math.PI * 41;
 
 function CountdownRing({ left, total }: { left: number; total: number }) {
   return (
-    <View style={styles.ring}>
+    <View
+      style={styles.ring}
+      accessible
+      accessibilityRole="timer"
+      accessibilityLabel={`Cancels by itself in ${left} seconds`}
+    >
       <Svg width={96} height={96} style={{ transform: [{ rotate: '-90deg' }] }}>
         <Circle cx={48} cy={48} r={41} stroke="rgba(255,255,255,0.16)" strokeWidth={9} fill="none" />
         <Circle
@@ -57,50 +64,51 @@ function CountdownRing({ left, total }: { left: number; total: number }) {
           strokeDashoffset={RING * (1 - left / total)}
         />
       </Svg>
-      <Text style={styles.ringNum}>{left}</Text>
+      <Text style={styles.ringNum} maxFontSizeMultiplier={1.2}>
+        {left}
+      </Text>
     </View>
   );
 }
 
-/** Counts down once a second and calls onTimeout at zero. Silence never counts as yes. */
-function useCountdown(seconds: number, onTimeout: () => void, resetKey: unknown = 0) {
-  const [left, setLeft] = useState(seconds);
-  const timeout = useRef(onTimeout);
-  timeout.current = onTimeout;
-  useEffect(() => {
-    setLeft(seconds);
-    const t = setInterval(() => setLeft((n) => n - 1), 1000);
-    return () => clearInterval(t);
-  }, [seconds, resetKey]);
-  useEffect(() => {
-    if (left <= 0) timeout.current();
-  }, [left]);
-  return Math.max(left, 0);
+/**
+ * How a pending action can end without a yes: Cancel, Back, the time-out, or leaving the app.
+ * Each is written to the log once, a message says what did not happen, and the user is taken
+ * back to the menu.
+ */
+function useEndWithoutYes(onNavigate: ScreenProps['onNavigate'], settle: (fn: () => void) => void) {
+  const demo = useDemo();
+  return (outcome: 'Cancelled' | 'Timed out', title?: string) =>
+    settle(() => {
+      demo.finish(outcome, title);
+      demo.setToast(`${outcome === 'Timed out' ? 'Timed out' : 'Cancelled'}. ${nothingHappened(demo.action)}`);
+      onNavigate('home');
+    });
 }
 
 /* ---------- A4 · Home menu (document 12.3 #4, 12.2) ---------- */
 
 export function HomeScreen({ onNavigate }: ScreenProps) {
   const demo = useDemo();
+  const reduceMotion = useReduceMotion();
   const [highlight, setHighlight] = useState(0);
-  const sensors = demo.sensorsFixed ? channels.map((c) => ({ ...c, state: 'good' as const })) : channels;
+  const sensors = currentChannels(demo.sensorsFixed);
   const weak = sensors.filter((c) => c.state !== 'good').length;
+  const scanning = !reduceMotion && !demo.paused;
 
-  // The highlight moves on its own, as if the user is choosing by imagined movement.
+  // The highlight moves on its own, as if the user is choosing by imagined movement. It holds
+  // still when the phone asks for reduced motion (then "Next" moves it) or IRADA is paused.
   useEffect(() => {
+    if (!scanning) return;
     const t = setInterval(() => setHighlight((h) => (h + 1) % actions.length), 1600);
     return () => clearInterval(t);
-  }, []);
-
-  // Messages such as "Cancelled. Nothing was sent." fade after a few seconds.
-  const { toast, setToast } = demo;
-  useEffect(() => {
-    if (!toast) return;
-    const t = setTimeout(() => setToast(null), 4000);
-    return () => clearTimeout(t);
-  }, [toast, setToast]);
+  }, [scanning]);
 
   const pick = (id: ActionId) => {
+    if (demo.paused) {
+      demo.setToast('IRADA is paused by your caregiver. Nothing will run until they resume it.');
+      return;
+    }
     demo.start(id);
     onNavigate(id === 'emergency' ? 'emergency' : 'intent');
   };
@@ -120,8 +128,9 @@ export function HomeScreen({ onNavigate }: ScreenProps) {
     >
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel="Open the headset check"
+        accessibilityLabel={`Headset connected. ${weak ? `${weak} sensors to check` : 'All sensors ready'}. Open the headset check.`}
         onPress={() => onNavigate('headset')}
+        style={({ pressed }) => pressed && { opacity: 0.9 }}
       >
         <WhiteCard style={{ gap: 12 }}>
           <View style={ui.row}>
@@ -136,24 +145,46 @@ export function HomeScreen({ onNavigate }: ScreenProps) {
             {sensors.map((c) => (
               <View key={c.name} style={styles.chan}>
                 <Dot color={contactColor[c.state]} size={7} />
-                <Text style={styles.chanText}>{c.name === 'Ear clips' ? 'Ref' : c.name}</Text>
+                <Text style={styles.chanText} numberOfLines={1}>
+                  {c.name === 'Ear clips' ? 'Ref' : c.name}
+                </Text>
               </View>
             ))}
           </View>
         </WhiteCard>
       </Pressable>
 
+      {demo.paused && (
+        <GlassCard style={[ui.row, { gap: 10 }]}>
+          <Icon name="pause" size={18} color={colors.lime} />
+          <Text style={styles.method}>Paused by your caregiver. Nothing will run until they resume it.</Text>
+          {/* In the real app only the caregiver's phone can resume; here it is one tap for the pitch. */}
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Resume IRADA, as the caregiver"
+            onPress={() => demo.setPaused(false)}
+            hitSlop={10}
+          >
+            <Text style={styles.resume}>Resume</Text>
+          </Pressable>
+        </GlassCard>
+      )}
+
       <Heading size={32} style={{ marginTop: 4 }}>
         What do you need?
       </Heading>
       <View style={[ui.row, { gap: 6 }]}>
-        <Dot color={colors.lime} size={8} />
-        <Text style={styles.method}>Choosing by imagined movement. Tap a tile to try it.</Text>
+        <Dot color={demo.paused ? colors.muted : colors.lime} size={8} />
+        <Text style={styles.method}>
+          {scanning
+            ? 'Choosing by imagined movement. Tap a tile, or press Yes when the one you want lights up.'
+            : 'Tap a tile, or use Next and Yes to choose.'}
+        </Text>
       </View>
 
       <View style={styles.tiles}>
         {actions.map((a, i) => {
-          const on = i === highlight;
+          const on = i === highlight && !demo.paused;
           const sos = a.id === 'emergency';
           const bg = on ? colors.lime : sos ? colors.black : colors.white;
           const fg = on || !sos ? colors.black : colors.white;
@@ -162,11 +193,13 @@ export function HomeScreen({ onNavigate }: ScreenProps) {
               key={a.id}
               accessibilityRole="button"
               accessibilityLabel={`${a.title}. ${a.note}`}
+              accessibilityState={{ disabled: demo.paused, selected: on }}
               onPress={() => pick(a.id)}
               style={({ pressed }) => [
                 sos ? styles.tileWide : styles.tile,
                 { backgroundColor: bg },
                 on && styles.tileOn,
+                demo.paused && { opacity: 0.5 },
                 pressed && { opacity: 0.85 },
               ]}
             >
@@ -192,21 +225,32 @@ export function HomeScreen({ onNavigate }: ScreenProps) {
         })}
       </View>
 
+      {/* The answers the headset understands: yes picks the lit tile, next moves the light on. */}
       <View style={[ui.row, { gap: 8 }]}>
-        {['Yes', 'No', 'Cancel'].map((q) => (
-          <View key={q} style={styles.quick}>
-            <Text style={styles.quickText}>{q}</Text>
-          </View>
+        {(
+          [
+            ['Yes', `Choose ${actions[highlight].title}`, () => pick(actions[highlight].id)],
+            ['Next', 'Move the highlight to the next tile', () => setHighlight((h) => (h + 1) % actions.length)],
+            [
+              'Cancel',
+              'Cancel',
+              () => demo.setToast('Nothing is waiting, so there is nothing to cancel. Cancel works on any pending action.'),
+            ],
+          ] as const
+        ).map(([label, a11y, onPress]) => (
+          <Pressable
+            key={label}
+            accessibilityRole="button"
+            accessibilityLabel={a11y}
+            onPress={onPress}
+            style={({ pressed }) => [styles.quick, pressed && { opacity: 0.7 }]}
+          >
+            <Text style={styles.quickText}>{label}</Text>
+          </Pressable>
         ))}
       </View>
 
-      {demo.toast ? (
-        <View accessibilityLiveRegion="polite" style={styles.toast}>
-          <Text style={styles.toastText}>{demo.toast}</Text>
-        </View>
-      ) : (
-        <Disclaimer text="Simulated for the pitch. IRADA is an assistive prototype, not a medical device." />
-      )}
+      <Disclaimer text="Simulated for the pitch. IRADA is an assistive prototype, not a medical device." />
     </Screen>
   );
 }
@@ -215,12 +259,14 @@ export function HomeScreen({ onNavigate }: ScreenProps) {
 
 export function IntentScreen({ onNavigate }: ScreenProps) {
   const demo = useDemo();
+  const settle = useSettleOnce();
+  const armed = useArmed();
+  const end = useEndWithoutYes(onNavigate, settle);
   const action = actions.find((a) => a.id === demo.action) ?? actions[1];
-  const cancel = () => {
-    demo.finish('Cancelled');
-    demo.setToast('Cancelled. Nothing was sent.');
-    onNavigate('home');
-  };
+  // A message cancelled here has no recipient yet, so the log names the action, not a person.
+  const cancel = () => end('Cancelled', demo.action === 'message' ? action.title : undefined);
+  useBackOverride(cancel);
+
   return (
     <Screen
       background="bright"
@@ -235,6 +281,7 @@ export function IntentScreen({ onNavigate }: ScreenProps) {
           <BigButton
             label="Confirm"
             icon="check"
+            disabled={!armed}
             onPress={() => onNavigate(demo.action === 'message' ? 'recipient' : 'confirm')}
           />
           <BigButton label="Cancel" tone="black" onPress={cancel} />
@@ -252,7 +299,7 @@ export function IntentScreen({ onNavigate }: ScreenProps) {
           <Text style={styles.confLabel}>Confidence</Text>
           <Text style={[styles.confLabel, { color: colors.lime }]}>High</Text>
         </View>
-        <View style={[ui.row, { gap: 6 }]}>
+        <View style={[ui.row, { gap: 6 }]} accessible accessibilityLabel="Confidence high, 4 of 5">
           {[0, 1, 2, 3, 4].map((i) => (
             <View
               key={i}
@@ -274,11 +321,11 @@ export function IntentScreen({ onNavigate }: ScreenProps) {
 
 /* ---------- A6 · Recipient and message (document 12.3 #6) ---------- */
 
-export function RecipientScreen({ onNavigate }: ScreenProps) {
+export function RecipientScreen({ onNavigate, onBack }: ScreenProps) {
   const demo = useDemo();
   return (
     <Screen
-      header={<TopBar title="Send message" onBack={() => onNavigate('intent')} />}
+      header={<TopBar title="Send message" onBack={onBack} />}
       footer={
         <>
           <BigButton label="Next" icon="check" onPress={() => onNavigate('confirm')} />
@@ -293,6 +340,7 @@ export function RecipientScreen({ onNavigate }: ScreenProps) {
           <Pressable
             key={c.name}
             accessibilityRole="radio"
+            accessibilityLabel={`${c.name}, ${c.role}`}
             accessibilityState={{ checked: on }}
             onPress={() => demo.setContact(i)}
             style={[styles.contact, { backgroundColor: on ? colors.lime : colors.white }, on && styles.glowRing]}
@@ -302,6 +350,7 @@ export function RecipientScreen({ onNavigate }: ScreenProps) {
               <Text style={styles.contactName}>{c.name}</Text>
               <Text style={[styles.contactRole, { color: on ? colors.limeLabel : colors.labelOnWhite }]}>{c.role}</Text>
             </View>
+            {on && <Icon name="check" size={22} color={colors.black} strokeWidth={2.6} />}
           </Pressable>
         );
       })}
@@ -335,41 +384,42 @@ export function RecipientScreen({ onNavigate }: ScreenProps) {
 
 export function ConfirmScreen({ onNavigate }: ScreenProps) {
   const demo = useDemo();
+  const settle = useSettleOnce();
+  const armed = useArmed();
+  const end = useEndWithoutYes(onNavigate, settle);
   const c = contacts[demo.contact];
   const isCall = demo.action === 'call';
-  const left = useCountdown(CONFIRM_SECONDS, () => {
-    demo.finish('Timed out');
-    demo.setToast('Timed out. Nothing was sent.');
-    onNavigate('home');
-  });
-  const yes = () => {
-    demo.finish('Done');
-    onNavigate('result');
-  };
-  const cancel = () => {
-    demo.finish('Cancelled');
-    demo.setToast('Cancelled. Nothing was sent.');
-    onNavigate('home');
-  };
+  const left = useCountdown(CONFIRM_SECONDS, () => end('Timed out'));
+  const cancel = () => end('Cancelled');
+  useBackOverride(cancel);
+  // Leaving the app is not a yes either.
+  useOnBackground(cancel);
+  const yes = () =>
+    settle(() => {
+      demo.finish('Done');
+      onNavigate('result');
+    });
   return (
     <Screen
       background="bright"
       header={
         <PillRow spread>
           <Pill label="Awaiting confirmation" />
-          <Pill label="Voice on" tone="glass" icon="volume" />
+          <Pill label={demo.voicePrompts ? 'Voice on' : 'Voice off'} tone="glass" icon="volume" />
         </PillRow>
       }
       footer={
         <>
-          <BigButton label={isCall ? 'Yes, call' : 'Yes, send'} icon="check" onPress={yes} />
+          <BigButton label={isCall ? 'Yes, call' : 'Yes, send'} icon="check" disabled={!armed} onPress={yes} />
           <BigButton label="Cancel" tone="black" onPress={cancel} />
         </>
       }
     >
       <View style={{ height: 24 }} />
       <Eyebrow>{isCall ? 'Call' : 'Message'}</Eyebrow>
-      <Heading size={38}>{isCall ? `Call ${c.name}?` : `Send “${presetMessages[demo.message]}” to ${c.name}?`}</Heading>
+      <Heading size={isCall ? 38 : 32}>
+        {isCall ? `Call ${c.name}?` : `Send “${presetMessages[demo.message]}” to ${c.name}?`}
+      </Heading>
       <Body>
         {c.name} is your {c.role.toLowerCase()}. {isCall ? 'IRADA opens a phone call.' : 'The message goes by text.'}
       </Body>
@@ -386,15 +436,23 @@ export function ConfirmScreen({ onNavigate }: ScreenProps) {
 
 /* ---------- A8 · Execution and result (document 12.3 #8) ---------- */
 
+const failure: Record<ActionId, { title: string; text: string }> = {
+  call: { title: 'The call did not connect', text: 'No mobile signal. Nothing else was done.' },
+  message: { title: 'The message did not send', text: 'No mobile signal. Nothing else was done.' },
+  emergency: { title: 'The alert did not send', text: 'No mobile signal. IRADA keeps trying and sounds the phone.' },
+};
+
 export function ResultScreen({ onNavigate }: ScreenProps) {
   const demo = useDemo();
   const c = contacts[demo.contact];
-  const time = useRef(now()).current;
+  // The time the action was logged, so the result and the log agree.
+  const time = useRef(demo.log[0]?.time ?? now()).current;
   const copy: Record<ActionId, { title: string; text: string }> = {
     call: { title: `Calling ${c.name}`, text: 'The call is starting on this phone.' },
     message: { title: 'Message sent', text: `“${presetMessages[demo.message]}” was sent to ${c.name} at ${time}.` },
     emergency: { title: 'Alert sent', text: 'Your emergency contacts have the alert and your location.' },
   };
+  const fail = failure[demo.action];
   return (
     <Screen
       background="bright"
@@ -406,22 +464,34 @@ export function ResultScreen({ onNavigate }: ScreenProps) {
         {copy[demo.action].title}
       </Heading>
       <Body style={{ textAlign: 'center' }}>{copy[demo.action].text}</Body>
-      <Pressable accessibilityRole="button" onPress={() => onNavigate('log')}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={`Saved to the activity log at ${time}. Open the log.`}
+        onPress={() => onNavigate('log')}
+        style={({ pressed }) => pressed && { opacity: 0.8 }}
+      >
         <GlassCard style={[ui.row, { justifyContent: 'space-between' }]}>
           <Text style={styles.cdText}>Saved to the activity log</Text>
-          <Text style={styles.logTime}>{time}</Text>
+          <View style={[ui.row, { gap: 6 }]}>
+            <Text style={styles.logTime}>{time}</Text>
+            <Icon name="chevron" size={16} color={colors.white} />
+          </View>
         </GlassCard>
       </Pressable>
-      <Eyebrow color={colors.muted}>If something goes wrong</Eyebrow>
+      <View style={[ui.row, { justifyContent: 'space-between' }]}>
+        <Eyebrow color={colors.muted}>If something goes wrong</Eyebrow>
+        <Pill label="Example" tone="glass" />
+      </View>
+      {/* A preview of the failure screen, so it is drawn as a picture of one, not as live buttons. */}
       <WhiteCard style={{ gap: 12 }}>
         <View style={ui.row}>
           <Disc icon="close" bg={colors.poor} fg={colors.white} size={40} />
           <View style={ui.flex}>
-            <Text style={ui.rowTitle}>The message did not send</Text>
-            <Text style={ui.cardText}>No mobile signal. Nothing else was done.</Text>
+            <Text style={ui.rowTitle}>{fail.title}</Text>
+            <Text style={ui.cardText}>{fail.text}</Text>
           </View>
         </View>
-        <View style={[ui.row, { gap: 8 }]}>
+        <View style={[ui.row, { gap: 8 }]} accessible accessibilityLabel="Its buttons: Try again, Do something else">
           <View style={[styles.smallBtn, { backgroundColor: colors.black }]}>
             <Text style={[styles.smallBtnText, { color: colors.white }]}>Try again</Text>
           </View>
@@ -438,35 +508,43 @@ export function ResultScreen({ onNavigate }: ScreenProps) {
 
 export function EmergencyScreen({ onNavigate }: ScreenProps) {
   const demo = useDemo();
+  const settle = useSettleOnce();
+  const end = useEndWithoutYes(onNavigate, settle);
   const [yeses, setYeses] = useState(0);
-  const cancel = (outcome: 'Cancelled' | 'Timed out') => {
-    demo.finish(outcome);
-    demo.setToast(outcome === 'Timed out' ? 'Timed out. No alert was sent.' : 'Cancelled. No alert was sent.');
-    onNavigate('home');
-  };
-  const left = useCountdown(CONFIRM_SECONDS, () => cancel('Timed out'), yeses);
-  const send = () => {
-    demo.finish('Done');
-    onNavigate('result');
-  };
-  const yes = () => (yeses === 0 ? setYeses(1) : send());
+  // Each yes waits a moment, so one double tap can never count as both yeses.
+  const armed = useArmed(900, yeses);
+  const cancel = () => end('Cancelled');
+  const left = useCountdown(CONFIRM_SECONDS, () => end('Timed out'), { resetKey: yeses });
+  useBackOverride(cancel);
+  useOnBackground(cancel);
+  const send = (byCaregiver: boolean) =>
+    settle(() => {
+      demo.finish('Done', byCaregiver ? 'Emergency alert, confirmed by caregiver' : undefined);
+      onNavigate('result');
+    });
+  const yes = () => (yeses === 0 ? setYeses(1) : send(false));
   return (
     <Screen
       background="emergency"
       header={
         <PillRow spread>
           <Pill label="Emergency" icon="alert" />
-          <View style={[ui.row, { gap: 6 }]}>
-            <Dot color={colors.lime} size={10} />
+          <View style={[ui.row, { gap: 6 }]} accessible accessibilityLabel={yeses > 0 ? 'One yes of two' : 'No yes yet, two needed'}>
             <Dot color={yeses > 0 ? colors.lime : 'rgba(255,255,255,0.25)'} size={10} />
-            <Text style={styles.stepText}>{yeses > 0 ? 'Second yes' : 'First yes'}</Text>
+            <Dot color="rgba(255,255,255,0.25)" size={10} />
+            <Text style={styles.stepText}>{yeses > 0 ? '1 of 2 yeses' : '2 yeses needed'}</Text>
           </View>
         </PillRow>
       }
       footer={
         <>
-          <BigButton label={yeses === 0 ? 'Yes' : 'Yes, send alert'} icon="alert" onPress={yes} />
-          <BigButton label="Cancel" tone="glass" onPress={() => cancel('Cancelled')} />
+          <BigButton
+            label={yeses === 0 ? 'Yes' : 'Yes, send alert'}
+            icon="alert"
+            disabled={!armed}
+            onPress={yes}
+          />
+          <BigButton label="Cancel" tone="glass" onPress={cancel} />
         </>
       }
     >
@@ -474,8 +552,8 @@ export function EmergencyScreen({ onNavigate }: ScreenProps) {
       <Heading size={38}>Send an emergency alert?</Heading>
       <Body>
         {yeses === 0
-          ? 'Emergency always needs two yeses in a row, or a tap from your caregiver.'
-          : 'This is your second yes. Say yes once more to send it.'}
+          ? `Emergency always needs two yeses in a row${demo.caregiverHere ? ', or a tap from your caregiver' : ''}.`
+          : 'First yes received. Say yes once more to send the alert.'}
       </Body>
       <WhiteCard style={{ gap: 12 }}>
         <View style={ui.row}>
@@ -500,10 +578,18 @@ export function EmergencyScreen({ onNavigate }: ScreenProps) {
           <Text style={styles.cdText}>If you do nothing, no alert is sent.</Text>
         </View>
       </View>
-      <Pressable accessibilityRole="button" onPress={send} hitSlop={6} style={styles.caregiverTap}>
-        <Icon name="user" size={16} color={colors.lavender} />
-        <Text style={styles.caregiverText}>Caregiver confirms instead</Text>
-      </Pressable>
+      {/* Only offered when the welcome screen says a caregiver is with the user. */}
+      {demo.caregiverHere && (
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => send(true)}
+          hitSlop={6}
+          style={({ pressed }) => [styles.caregiverTap, pressed && { opacity: 0.6 }]}
+        >
+          <Icon name="user" size={16} color={colors.lavender} />
+          <Text style={styles.caregiverText}>Caregiver confirms instead</Text>
+        </Pressable>
+      )}
     </Screen>
   );
 }
@@ -562,14 +648,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   quickText: { fontFamily: fonts.bold, fontSize: 15, color: colors.white },
-  toast: {
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: colors.white,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  toastText: { fontFamily: fonts.bold, fontSize: 13, color: colors.black },
+  resume: { fontFamily: fonts.bold, fontSize: 14, color: colors.lime },
   intentIcon: { height: 180, alignItems: 'center', justifyContent: 'center' },
   intentHalo: {
     position: 'absolute',

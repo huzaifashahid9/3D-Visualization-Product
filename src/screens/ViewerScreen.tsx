@@ -4,14 +4,14 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { FloatingNav } from '../components/FloatingNav';
-import type { Route } from '../navigation';
+import type { ScreenProps } from '../navigation';
 import { Icon } from '../components/Icon';
 import { RoundButton } from '../components/RoundButton';
 import { parts } from '../data/parts';
 import { colors, fonts, gradients, radius } from '../theme';
 import { ModelViewer, type ModelViewerHandle } from '../viewer/ModelViewer';
 
-export function ViewerScreen({ onNavigate }: { onNavigate(route: Route): void }) {
+export function ViewerScreen({ onNavigate, onBack }: ScreenProps) {
   const insets = useSafeAreaInsets();
   const viewer = useRef<ModelViewerHandle>(null);
   const [selected, setSelected] = useState(0);
@@ -22,7 +22,7 @@ export function ViewerScreen({ onNavigate }: { onNavigate(route: Route): void })
   return (
     <LinearGradient colors={gradients.viewer} locations={gradients.viewerStops} style={styles.root}>
       <View style={[styles.header, { paddingTop: insets.top + 6 }]}>
-        <RoundButton icon="back" label="Back to intro" onPress={() => onNavigate('intro')} />
+        <RoundButton icon="back" label="Back" onPress={onBack} />
         <View style={styles.segment} accessibilityRole="tablist">
           {(['3D view', 'Exploded'] as const).map((label, i) => {
             const on = (i === 1) === exploded;
@@ -32,6 +32,7 @@ export function ViewerScreen({ onNavigate }: { onNavigate(route: Route): void })
                 accessibilityRole="tab"
                 accessibilityState={{ selected: on }}
                 onPress={() => setExploded(i === 1)}
+                hitSlop={4}
                 style={[styles.segmentItem, on && styles.segmentItemOn]}
               >
                 <Text style={[styles.segmentText, on && styles.segmentTextOn]}>{label}</Text>
@@ -41,7 +42,7 @@ export function ViewerScreen({ onNavigate }: { onNavigate(route: Route): void })
         </View>
         <RoundButton
           icon="spin"
-          label="Auto-spin"
+          label={autoRotate ? 'Stop spinning' : 'Spin on its own'}
           variant={autoRotate ? 'lime' : 'glass'}
           selected={autoRotate}
           onPress={() => setAutoRotate((v) => !v)}
@@ -90,7 +91,12 @@ export function ViewerScreen({ onNavigate }: { onNavigate(route: Route): void })
                 key={p.id}
                 accessibilityRole="button"
                 accessibilityState={{ selected: on }}
-                onPress={() => setSelected(i)}
+                onPress={() => {
+                  // Turn the model to show the part, and stop spinning so it stays in view.
+                  setSelected(i);
+                  setAutoRotate(false);
+                  viewer.current?.focus(i);
+                }}
                 style={[styles.chip, on && styles.chipOn]}
               >
                 <Text style={[styles.chipText, on && styles.chipTextOn]}>{p.title}</Text>
@@ -99,8 +105,10 @@ export function ViewerScreen({ onNavigate }: { onNavigate(route: Route): void })
           })}
         </ScrollView>
         <View style={styles.titleRow}>
-          <Text style={styles.partNum}>0{selected + 1}</Text>
-          <Text style={styles.partTitle}>{part.title}</Text>
+          <Text style={styles.partNum}>{String(selected + 1).padStart(2, '0')}</Text>
+          <Text style={styles.partTitle} accessibilityRole="header" maxFontSizeMultiplier={1.4}>
+            {part.title}
+          </Text>
         </View>
         <Text style={styles.partBody}>{part.body}</Text>
         <View style={styles.specs}>
@@ -128,11 +136,12 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   segment: { flexDirection: 'row', padding: 4, gap: 4, borderRadius: radius.pill, backgroundColor: colors.glass },
-  segmentItem: { height: 44, paddingHorizontal: 18, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
+  segmentItem: { height: 44, paddingHorizontal: 16, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
   segmentItemOn: { backgroundColor: colors.white },
   segmentText: { fontFamily: fonts.bold, fontSize: 14, color: colors.white },
   segmentTextOn: { color: colors.black },
-  stage: { flex: 1, marginHorizontal: 16, borderRadius: radius.card, overflow: 'hidden', minHeight: 260 },
+  // Small enough that the part card still fits on a 4.7-inch phone.
+  stage: { flex: 1, marginHorizontal: 16, borderRadius: radius.card, overflow: 'hidden', minHeight: 180 },
   dragTag: {
     position: 'absolute',
     left: 16,
@@ -180,7 +189,7 @@ const styles = StyleSheet.create({
   chipOn: { backgroundColor: colors.black },
   chipText: { fontFamily: fonts.bold, fontSize: 13, color: '#3B3654' },
   chipTextOn: { color: colors.white },
-  titleRow: { flexDirection: 'row', alignItems: 'baseline', gap: 10, marginTop: 4 },
+  titleRow: { flexDirection: 'row', alignItems: 'baseline', gap: 10, marginTop: 4, flexWrap: 'wrap' },
   partNum: { fontFamily: fonts.extrabold, fontSize: 13, color: colors.accentOnWhite },
   partTitle: { fontFamily: fonts.extrabold, fontSize: 26, letterSpacing: -0.8, color: colors.black },
   partBody: { fontFamily: fonts.medium, fontSize: 13.5, lineHeight: 19.5, color: colors.textOnWhite },
